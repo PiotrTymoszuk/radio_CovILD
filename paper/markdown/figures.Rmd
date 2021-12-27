@@ -68,7 +68,7 @@ paper_tables$baseline_cohort %>%
 
 \newpage
 
-```{r tab-baseline-severity, tab.cap = 'Baseline characteristic of the acute COVID-19 severity subsets. Statistical significance of the differences between the severity subsets was assessed with $\\chi^2$ test.'}
+```{r tab-baseline-severity, tab.cap = 'Baseline characteristic of the acute COVID-19 severity subsets. Statistical significance of the differences between the severity subsets was assessed with $\\chi^2$ (categorical variables) or Mann-Whitney U test (age).'}
 
 paper_tables$baseline_severity %>% 
   flextable() %>%

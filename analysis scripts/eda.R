@@ -14,12 +14,12 @@
   
   ## analyses
 
-  eda$baseline$analyses_cohort <- radio$long_expl_var %>% 
+  eda$baseline$analyses_cohort <- c('age', radio$long_expl_var) %>% 
     map(analyze_feature, 
         inp_tbl = rbind(mutate(radio$clear, dummy_var = factor('dummy1')), 
                         mutate(radio$clear, dummy_var = factor('dummy2'))), 
         split_var = 'dummy_var') %>% 
-    set_names(radio$long_expl_var)
+    set_names(c('age', radio$long_expl_var))
 
   ## summary table
   
@@ -35,18 +35,18 @@
   
   ## analyses
   
-  eda$baseline$analyses_severity <- radio$long_expl_var %>% 
+  eda$baseline$analyses_severity <- c('age', radio$long_expl_var) %>% 
     map(analyze_feature, 
         inp_tbl = radio$clear, 
         split_var = 'severity') %>% 
-    set_names(radio$long_expl_var)
+    set_names(c('age', radio$long_expl_var))
   
   ## summary tables, for age: ANOVA (homogeneous variances and normality, see the analysis object)
   
   eda$baseline$summary_severity <- eda$baseline$analyses_severity %>% 
     map_dfr(get_feature_summary) %>% 
     filter(variable != 'severity') %>% 
-    mutate(p_value = ifelse(is.na(p_chi), p_param, p_chi)) %>% 
+    mutate(p_value = ifelse(is.na(p_chi), p_non_param, p_chi)) %>% 
     add_stat_info %>% 
     select(variable, label, mild, moderate, severe, critical, test, p_value, significance, p_adj)
   
