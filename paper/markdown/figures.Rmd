@@ -1,0 +1,197 @@
+---
+title: "Radio CovILD, 1-year follow-up"
+subtitle: "Tables and figures"
+author: "CovILD study team"
+date: "`r format(Sys.time(), '%Y-%m-%d')`"
+always_allow_html: true
+output: 
+  pdf_document:
+    latex_engine: xelatex
+bibliography: cov_biblio.bib
+csl: elife.csl
+header-includes:
+  \usepackage{longtable}
+  \usepackage{tabu}
+  \usepackage{caption}
+  \usepackage{makecell}
+  \usepackage{pdflscape}
+  \usepackage{array}
+  \usepackage{booktabs}
+  \usepackage{threeparttable}
+  \usepackage{threeparttablex}
+  \usepackage{wrapfig}
+  \usepackage{multirow}
+  \usepackage[normalem]{ulem}
+  \usepackage{colortbl}
+  \usepackage{xcolor}
+  \usepackage{float} \floatplacement{figure}{H}
+  \newcommand{\beginsupplement}{\setcounter{table}{0}  \renewcommand{\thetable}{S\arabic{table}}       \setcounter{figure}{0} \renewcommand{\thefigure}{S\arabic{figure}}}
+---
+
+```{r, setup, include = FALSE}
+
+library(bookdown)
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, dev = "cairo_pdf", ft_max_row = 6, tab.topcaption = FALSE, ft.align = "center")
+
+set_flextable_defaults(font.size = 11, padding = 2)
+
+use_df_printer()
+
+
+```
+
+\newpage
+
+# Tables
+
+```{r tab-study-variables, tab.cap = 'Variables available for the analysis. The first 10 table records are shown. The full table is available as a supplementary Excel file.'}
+
+paper_tables$study_vars[1:10, ] %>% 
+  flextable() %>% 
+  width(1, width = 4, unit = 'cm') %>% 
+  width(2:3, width = 2.5, unit = 'cm') %>% 
+  width(4:5, width = 4, unit = 'cm')
+
+```
+
+\newpage
+
+```{r tab-baseline-cohort, tab.cap = 'Baseline characteristic of the cohort.'}
+
+paper_tables$baseline_cohort %>% 
+  flextable() %>%
+  width(1, width = 3, unit = 'cm') %>% 
+  width(2, width = 7, unit = 'cm')
+
+```
+
+\newpage
+
+```{r tab-baseline-severity, tab.cap = 'Baseline characteristic of the acute COVID-19 severity subsets. Statistical significance of the differences between the severity subsets was assessed with $\\chi^2$ test.'}
+
+paper_tables$baseline_severity %>% 
+  flextable() %>%
+  width(1, width = 1.8, unit = 'cm') %>% 
+  width(2:5, width = 3.9, unit = 'cm') %>% 
+  width(6, width = 2.5, unit = 'cm')
+
+```
+
+\newpage
+
+```{r tab-ct-cohort, tab.cap = 'Lung CT features in the entire cohort at the consecutive follow-up visits. Statistical significance of the differences between the visits was assessed with $\\chi^2$ test.'}
+
+paper_tables$ct_cohort %>% 
+  flextable() %>%
+  width(1, width = 3, unit = 'cm') %>% 
+  width(2:5, width = 3.2, unit = 'cm') %>% 
+  width(6, width = 2.5, unit = 'cm')
+
+```
+
+\newpage
+
+```{r tab-ct-visits, tab.cap = 'Lung CT features in the acute COVID-19 severity subsets at the consecutive follow-up visits. Statistical significance of the differences between the visits was assessed with $\\chi^2$ test.'}
+
+paper_tables$ct_visits %>% 
+  flextable() %>%
+  width(1, width = 1.8, unit = 'cm') %>% 
+  width(2, width = 2.7, unit = 'cm') %>% 
+  width(3:6, width = 3.2, unit = 'cm') %>% 
+  width(7, width = 2.5, unit = 'cm')
+
+```
+
+\newpage
+
+```{r tab-ct-severity, tab.cap = 'Lung CT features in the acute COVID-19 severity subsets at the consecutive follow-up visits. Statistical significance of the differences between the severity subsets was assessed with $\\chi^2$ test.'}
+
+paper_tables$ct_severity %>% 
+  flextable() %>%
+  width(1, width = 1.8, unit = 'cm') %>% 
+  width(2, width = 2.7, unit = 'cm') %>% 
+  width(3:6, width = 3.2, unit = 'cm') %>% 
+  width(7, width = 2.5, unit = 'cm')
+
+```
+
+\newpage
+
+```{r tab-ctss, tab.cap = 'CT severity score at the consecutive visits in the entire cohort and the acute COVID-19 severity subsets. Statistical significance of the differences between the visits was assessed with Kruskal-Wallis test.'}
+
+paper_tables$ctss %>% 
+  flextable() %>%
+  width(1, width = 1.8, unit = 'cm') %>% 
+  width(2:5, width = 3.5, unit = 'cm') %>% 
+  width(6, width = 2.5, unit = 'cm')
+
+```
+
+\newpage
+
+# Figures {#sec:figures}
+
+```{r fig-consort, fig.width = mm_inch(paper_figures$ct_kinetic$w), fig.height = mm_inch(paper_figures$ct_kinetic$h), dpi = 600, fig.cap = 'Study inclusion flow diagram.'}
+
+ggdraw()
+
+```
+
+__Figure \@ref(fig:fig-consort). Study inclusion flow diagram.__
+
+\newpage
+
+```{r fig-ct-kinetic, fig.width = mm_inch(paper_figures$ct_kinetic$w), fig.height = mm_inch(paper_figures$ct_kinetic$h), dpi = 600, fig.cap = 'Resolution kinetic of any and moderate-to-severe lung CT abnormalities.'}
+
+paper_figures$ct_kinetic$plot
+
+```
+
+__Figure \@ref(fig:fig-ct-kinetic). Resolution kinetic of any and moderate-to-severe lung CT abnormalities.__
+
+Risk of any lung CT abnormalities (__A__) and moderate-to-severe lung CT abnormalities (CTSS > 5, __B__) at the consecutive time points was modeled by mixed-effect logistic regression (random effect: individual, fixed effect: time post COVID-19) in the entire cohort and the acute COVID-19 severity subsets. Significance of the fixed time term was determined by likelihood ratio test (LRT) versus the respective random effect-only null model. Plots display percents of individuals with CT abnormalities in the analyzed collectives. $\chi$ statistic, degrees of freedom and p values of the LRT test are presented in the plot captions. Numbers of individuals with the complete set of consecutive CT scans are shown under the plots.
+
+\newpage
+
+```{r fig-ctss-kinetic, fig.width = mm_inch(paper_figures$ctss_kinetic$w), fig.height = mm_inch(paper_figures$ctss_kinetic$h), dpi = 600, fig.cap = 'Kinetic of the CT severity score.'}
+
+paper_figures$ctss_kinetic$plot
+
+```
+
+__Figure \@ref(fig:fig-ctss-kinetic). Kinetic of the CT severity score.__
+
+CTSS kinetic at the consecutive time points was investigated by Friedman test (grouping by the individual) in the entire cohort and the acute COVID-19 severity subsets. The effect size was determined by Kendall W test, differences between particular time points were compared by Wilcoxon test. Plots display individual CTSS value trajectories as thin gray lines, thick colored lines represent medians, interquartile ranges are presented as colored regions. $\chi$ statistic, degrees of freedom and p values of the Friedman test and the Kendall W statistic with 95$%$ confidence intervals are presented in the plot captions. Numbers of individuals with the complete set of consecutive CT scans are shown under the plots.
+
+\newpage
+
+```{r fig-pili-risk, fig.width = mm_inch(paper_figures$pili_modeling$w), fig.height = mm_inch(paper_figures$pili_modeling$h), dpi = 600, fig.cap = 'Risk of developing PILI at the one-year post-COVID-19 follow-up.'}
+
+paper_figures$pili_modeling$plot
+
+```
+
+__Figure \@ref(fig:fig-pili-risk). Risk of developing PILI at the one-year post-COVID-19 follow-up.__
+
+__(A)__ Risk factors of developing PILI at the one-year follow-up visit were identified by a series of logistic models. Odds ratio (OR) significance was determined by Wald Z test. OR with 95$%$ confidence intervals are presented in a Forest plot. Numbers of complete observations and the reference levels of the explanatory variables are indicated in the Y axis.
+
+__(B)__ Independent risk factors of PILI were identified by multi-parameter logistic modeling with backward elimination. OR significance was determined by Wald Z test. Model prediction was verified by 20-fold cross-validation (CV) and receiver-operating characteristic (ROC). OR with 95$%$ confidence intervals are presented in a Forest plot. Area under the curve (AUC), sensitivity (Se) and specificity (Sp) for detection of PILI in CV are indicated in the plot caption. Numbers of complete observations and the reference levels of the explanatory variables are indicated in the Y axis.
+
+BMI: body mass index, PKY: packages per year.
+
+\newpage
+
+```{r fig-ctss-model, fig.width = mm_inch(paper_figures$ctss_modeling$w), fig.height = mm_inch(paper_figures$ctss_modeling$h), dpi = 600, fig.cap = 'Predictors of CTSS at the one-year post-COVID-19 follow-up.'}
+
+paper_figures$ctss_modeling$plot
+
+```
+
+__Figure \@ref(fig:fig-ctss-model). Predictors of CTSS at the one-year post-COVID-19 follow-up.__
+
+__(A)__ Factors associated with CTSS at the one-year follow-up visit were identified by a series of Poisson models. Regression coefficient ($\beta$) significance was determined by Wald Z test. Exponent $\beta$ with 95$%$ confidence intervals are presented in a Forest plot. Numbers of complete observations and the reference levels of the explanatory variables are indicated in the Y axis.
+
+__(B)__ Independent factors associated with CTSS were identified by multi-parameter Poisson modeling with backward elimination. $\beta$ significance was determined by Wald Z test. Model prediction was verified by 20-fold cross-validation (CV). Exponent $\beta$ with 95$%$ confidence intervals are presented in a Forest plot. Mean absolute error (MAE) for prediction of CTSS and model R^2^ (Rsq) in CV are indicated in the plot caption. Numbers of complete observations and the reference levels of the explanatory variables are indicated in the Y axis.
+
+BMI: body mass index, PKY: packages per year.
