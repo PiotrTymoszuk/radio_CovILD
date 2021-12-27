@@ -133,6 +133,23 @@
   
   plan('sequential')
   
+  ## model diagnostic tables, normality and variance homogeneity testing
+  
+  risk$multivariate_resids <- risk$multivariate_models %>% 
+    map(~.x$finalModel) %>% 
+    map(get_qc_tbl)
+
+  risk$multivariate_normality <- risk$multivariate_resids %>% 
+    map(~.x$.resid) %>% 
+    map(shapiro_test) %>% 
+    map2_dfr(., names(.), ~mutate(.x, variable = .y))
+  
+  ## diagnostic plots
+  
+  risk$multivariate_diagnostic <- risk$multivariate_models %>% 
+    map(~.x$finalModel) %>% 
+    map(get_qc_plots)
+
   ## final models, inference
   
   risk$multivariate_summary <- risk$multivariate_models %>% 

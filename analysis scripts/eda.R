@@ -117,8 +117,8 @@
   
   eda$ctss_normality$time_test_ident <- radio$long %>% 
     dlply(.(visit)) %>% 
-    map(~shapiro.test(.x$ctss)) %>% 
-    map2_dfr(., names(.), ~tibble(visit = .y, p_value = .x$p.value))
+    map(~shapiro_test(.x$ctss)) %>% 
+    map2_dfr(., names(.), ~mutate(.x, visit = .y))
   
   eda$ctss_normality$time_plot_ident <- radio$long %>% 
     dlply(.(visit)) %>% 
@@ -130,8 +130,8 @@
   
   eda$ctss_normality$time_sev_test_ident <- radio$long %>% 
     dlply(.(visit, severity)) %>% 
-    map(~shapiro.test(.x$ctss)) %>% 
-    map2_dfr(., names(.), ~tibble(visit = .y, p_value = .x$p.value))
+    map(~shapiro_test(.x$ctss)) %>% 
+    map2_dfr(., names(.), ~mutate(.x, visit = .y))
   
   eda$ctss_normality$time_sev_plot_ident <- radio$long %>% 
     dlply(.(visit, severity)) %>% 
@@ -143,8 +143,8 @@
   
   eda$ctss_normality$time_test_log <- radio$long %>% 
     dlply(.(visit)) %>% 
-    map(~shapiro.test(log(.x$ctss + 1))) %>% 
-    map2_dfr(., names(.), ~tibble(visit = .y, p_value = .x$p.value))
+    map(~shapiro_test(log(.x$ctss + 1))) %>% 
+    map2_dfr(., names(.), ~mutate(.x, visit = .y))
   
   eda$ctss_normality$time_plot_log <- radio$long %>% 
     dlply(.(visit)) %>% 
@@ -156,14 +156,27 @@
   
   eda$ctss_normality$time_sev_test_log <- radio$long %>% 
     dlply(.(visit, severity)) %>% 
-    map(~shapiro.test(log(.x$ctss + 1))) %>% 
-    map2_dfr(., names(.), ~tibble(visit = .y, p_value = .x$p.value))
+    map(~shapiro_test(log(.x$ctss + 1))) %>% 
+    map2_dfr(., names(.), ~mutate(.x, visit = .y))
   
   eda$ctss_normality$time_sev_plot_log <- radio$long %>% 
     dlply(.(visit, severity)) %>% 
     map(~ggplot(.x, aes(sample = log(ctss + 1))) + 
           geom_qq() + 
           geom_qq_line())
+
+# Variance homogeneity of the CTSS at the time points and in the severity groups -----
+  
+  insert_msg('Variance homogeneity of the CTSS')
+  
+  eda$ctss_homogeneity <- list(ctss ~ visit, 
+                               ctss ~ severity, 
+                               log(ctss + 1) ~ visit, 
+                               log(ctss + 1) ~ severity) %>% 
+    map(levene_test, 
+        data = radio$long) %>% 
+    map2_dfr(., c('visit', 'severity', 'visit', 'severity'), ~mutate(.x, grouping = .y)) %>% 
+    mutate(transformation = c('identity', 'identity', 'log', 'log'))
 
 # CT score at the time points, entire cohort and the severity groups, non-parametric testing ------
   
