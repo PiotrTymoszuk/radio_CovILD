@@ -23,7 +23,7 @@
   
   insert_msg('Reading the SPSS data file')
   
-  radio$raw <- read.spss(file = './data/20211216PILI.sav', 
+  radio$raw <- read.spss(file = './data/20211228PILI.sav', 
                           to.data.frame = TRUE) %>% 
     as_tibble %>% 
     mutate(ID = rm_spaces(RAD_ID, 'character'))
@@ -78,8 +78,8 @@
            ctss_any_fup4 = factor(ifelse(ctss_fup4 > 0, 'yes', 'no')), 
            ctss_mod_severe_fup4 = factor(ifelse(ctss_fup4 > 5, 'yes', 'no')), 
            ctss_severe_fup4 = factor(ifelse(ctss_fup4 > 10, 'yes', 'no')), 
-           pili_fup4 = ifelse(pili_fup4 == 'no abnormalities', 'no', 'yes'), 
-           pili_fup4 = factor(pili_fup4)) %>% 
+           opacity_fup4 = factor(ifelse(perc_opac_fup4 > 0, 'yes', 'no')), 
+           hiopacity_fup4 = factor(ifelse(perc_hiopac_fup4 > 0, 'yes', 'no'))) %>% 
     filter(!is.na(date_fup4)) %>% 
     map_dfr(function(x) if(is.factor(x)) droplevels(x) else x)
   
@@ -95,10 +95,12 @@
   
   radio$long_outcome_var <- radio$vars %>% 
     filter(modeling == 'long_outcome') %>% 
+    arrange(order) %>% 
     .$new_var
   
   radio$long_expl_var <- radio$vars %>% 
     filter(modeling == 'explanatory') %>% 
+    arrange(order) %>% 
     .$new_var
   
   radio$long <- radio$long_outcome_var %>% 
@@ -138,16 +140,20 @@
            ctss_class = factor(ctss_class, levels = levels(radio$clear$ctss_class_fup1)), 
            ctss_any = factor(ifelse(ctss > 0, 'yes', 'no')), 
            ctss_mod_severe = factor(ifelse(ctss > 5, 'yes', 'no')), 
-           ctss_severe = factor(ifelse(ctss > 10, 'yes', 'no')))
+           ctss_severe = factor(ifelse(ctss > 10, 'yes', 'no')), 
+           opacity = factor(ifelse(perc_opac > 0, 'yes', 'no')), 
+           hiopacity = factor(ifelse(perc_hiopac > 0, 'yes', 'no')))
 
 # convenience vectors with score and categorical outcome variables ----
   
   insert_msg('Score and categorical outcome variables')
   
-  radio$cat_outcome_var <- c(radio$long_outcome_var[!stri_detect(radio$long_outcome_var, fixed = 'ctss')], 
-                             'ctss_any', 
+  radio$cat_outcome_var <- c('ctss_any', 
                              'ctss_mod_severe', 
-                             'ctss_severe')
+                             'ctss_severe', 
+                             'opacity', 
+                             'hiopacity', 
+                             radio$long_outcome_var[!stri_detect(radio$long_outcome_var, regex = 'ctss|opac')])
   
   radio$score_outcome_var <- radio$long_outcome_var[!radio$long_outcome_var %in% radio$cat_outcome_var]
   

@@ -74,7 +74,8 @@ paper_tables$baseline_severity %>%
   flextable() %>%
   width(1, width = 1.8, unit = 'cm') %>% 
   width(2:5, width = 3.9, unit = 'cm') %>% 
-  width(6, width = 2.5, unit = 'cm')
+  width(6, width = 2.5, unit = 'cm') %>% 
+  merge_v(1)
 
 ```
 
@@ -99,7 +100,8 @@ paper_tables$ct_visits %>%
   width(1, width = 1.8, unit = 'cm') %>% 
   width(2, width = 2.7, unit = 'cm') %>% 
   width(3:6, width = 3.2, unit = 'cm') %>% 
-  width(7, width = 2.5, unit = 'cm')
+  width(7, width = 2.5, unit = 'cm') %>% 
+  merge_v(1)
 
 ```
 
@@ -112,7 +114,8 @@ paper_tables$ct_severity %>%
   width(1, width = 1.8, unit = 'cm') %>% 
   width(2, width = 2.7, unit = 'cm') %>% 
   width(3:6, width = 3.2, unit = 'cm') %>% 
-  width(7, width = 2.5, unit = 'cm')
+  width(7, width = 2.5, unit = 'cm') %>% 
+  merge_v(1)
 
 ```
 
@@ -125,6 +128,20 @@ paper_tables$ctss %>%
   width(1, width = 1.8, unit = 'cm') %>% 
   width(2:5, width = 3.5, unit = 'cm') %>% 
   width(6, width = 2.5, unit = 'cm')
+
+```
+
+\newpage
+
+```{r tab-opacity, tab.cap = 'Percentages of opacity and high opacity at the consecutive visits in the entire cohort and the acute COVID-19 severity subsets. Statistical significance of the differences between the visits was assessed with Kruskal-Wallis test.'}
+
+paper_tables$opacity %>% 
+  flextable() %>%
+  width(1, width = 1.8, unit = 'cm') %>% 
+  width(2, width = 1.8, unit = 'cm') %>% 
+  width(3:6, width = 3.5, unit = 'cm') %>% 
+  width(7, width = 2.5, unit = 'cm') %>% 
+  merge_v(1)
 
 ```
 
@@ -174,11 +191,11 @@ paper_figures$pili_modeling$plot
 
 __Figure \@ref(fig:fig-pili-risk). Risk of developing PILI at the one-year post-COVID-19 follow-up.__
 
-__(A)__ Risk factors of developing PILI at the one-year follow-up visit were identified by a series of logistic models. Odds ratio (OR) significance was determined by Wald Z test. OR with 95$%$ confidence intervals are presented in a Forest plot. Numbers of complete observations and the reference levels of the explanatory variables are indicated in the Y axis.
+__(A)__ Risk factors of developing any lung CT abnormality at the one-year follow-up visit were identified by a series of logistic models. Odds ratio (OR) significance was determined by Wald Z test. OR with 95$%$ confidence intervals are presented in a Forest plot. Numbers of complete observations and the reference levels of the explanatory variables are indicated in the Y axis.
 
-__(B)__ Independent risk factors of PILI were identified by multi-parameter logistic modeling with backward elimination. OR significance was determined by Wald Z test. Model prediction was verified by 20-fold cross-validation (CV) and receiver-operating characteristic (ROC). OR with 95$%$ confidence intervals are presented in a Forest plot. Area under the curve (AUC), sensitivity (Se) and specificity (Sp) for detection of PILI in CV are indicated in the plot caption. Numbers of complete observations and the reference levels of the explanatory variables are indicated in the Y axis.
+__(B)__ Independent risk factors of lung CT abnormality were identified by multi-parameter logistic modeling with backward elimination. OR significance was determined by Wald Z test. Model prediction was verified by 20-fold cross-validation (CV) and receiver-operating characteristic (ROC). OR with 95$%$ confidence intervals are presented in a Forest plot. Area under the curve (AUC), sensitivity (Se) and specificity (Sp) for detection of lung CT abnormality in CV are indicated in the plot caption. Numbers of complete observations and the reference levels of the explanatory variables are indicated in the Y axis.
 
-BMI: body mass index, PKY: packages per year.
+Orange: positive correlation, blue: negative correlation, gray: not significant, BMI: body mass index, PKY: packages per year, ref.: reference.
 
 \newpage
 
@@ -194,4 +211,76 @@ __(A)__ Factors associated with CTSS at the one-year follow-up visit were identi
 
 __(B)__ Independent factors associated with CTSS were identified by multi-parameter Poisson modeling with backward elimination. $\beta$ significance was determined by Wald Z test. Model prediction was verified by 20-fold cross-validation (CV). Exponent $\beta$ with 95$%$ confidence intervals are presented in a Forest plot. Mean absolute error (MAE) for prediction of CTSS and model R^2^ (Rsq) in CV are indicated in the plot caption. Numbers of complete observations and the reference levels of the explanatory variables are indicated in the Y axis.
 
-BMI: body mass index, PKY: packages per year.
+Orange: positive correlation, blue: negative correlation, gray: not significant, BMI: body mass index, PKY: packages per year, ref.: reference.
+
+\newpage
+
+# Supplementary Figures
+
+\beginsupplement
+
+```{r fig-ct-opacity, fig.width = mm_inch(suppl_figures$ct_opacity$w), fig.height = mm_inch(suppl_figures$ct_opacity$h), dpi = 600, fig.cap = 'Resolution kinetic of lung CT opacity.'}
+
+suppl_figures$ct_opacity$plot
+
+```
+
+__Figure \@ref(fig:fig-ct-opacity). Resolution kinetic of lung CT opacity.__
+
+Risk of any lung CT opacity at the consecutive time points was modeled by mixed-effect logistic regression (random effect: individual, fixed effect: time post COVID-19) in the entire cohort and the acute COVID-19 severity subsets. Significance of the fixed time term was determined by likelihood ratio test (LRT) versus the respective random effect-only null model. Plots display percents of individuals with CT opacity in the analyzed collectives. $\chi$ statistic, degrees of freedom and p values of the LRT test are presented in the plot captions. Numbers of individuals with the complete set of consecutive CT scans are shown under the plots.
+
+\newpage
+
+```{r fig-opacity-kinetic, fig.width = mm_inch(suppl_figures$opacity_kinetic$w), fig.height = mm_inch(suppl_figures$opacity_kinetic$h), dpi = 600, fig.cap = 'Kinetic of the lung opacity.'}
+
+suppl_figures$opacity_kinetic$plot
+
+```
+
+__Figure \@ref(fig:fig-opacity-kinetic). Kinetic of the lung opacity.__
+
+Kinetic of the lung opacity at the consecutive time points was investigated by Friedman test (grouping by the individual) in the entire cohort and the acute COVID-19 severity subsets. The effect size was determined by Kendall W test, differences between particular time points were compared by Wilcoxon test. Plots display individual opacity trajectories as thin gray lines, thick colored lines represent medians, interquartile ranges are presented as colored regions. $\chi$ statistic, degrees of freedom and p values of the Friedman test and the Kendall W statistic with 95$%$ confidence intervals are presented in the plot captions. Numbers of individuals with the complete set of consecutive CT scans are shown under the plots.
+
+\newpage
+
+```{r fig-opacity-risk, fig.width = mm_inch(suppl_figures$opacity_risk$w), fig.height = mm_inch(suppl_figures$opacity_risk$h), dpi = 600, fig.cap = 'Risk of developing lung opacity at the one-year post-COVID-19 follow-up.'}
+
+suppl_figures$opacity_risk$plot
+
+```
+
+__Figure \@ref(fig:fig-opacity-risk). Risk of developing lung opacity at the one-year post-COVID-19 follow-up.__
+
+__(A)__ Risk factors of developing opacity at the one-year follow-up visit were identified by a series of logistic models. Odds ratio (OR) significance was determined by Wald Z test. OR with 95$%$ confidence intervals are presented in a Forest plot. Numbers of complete observations and the reference levels of the explanatory variables are indicated in the Y axis.
+
+__(B)__ Independent risk factors of opacity were identified by multi-parameter logistic modeling with backward elimination. OR significance was determined by Wald Z test. Model prediction was verified by 20-fold cross-validation (CV) and receiver-operating characteristic (ROC). OR with 95$%$ confidence intervals are presented in a Forest plot. Area under the curve (AUC), sensitivity (Se) and specificity (Sp) for detection of opacity in CV are indicated in the plot caption. Numbers of complete observations and the reference levels of the explanatory variables are indicated in the Y axis.
+
+Orange: positive correlation, blue: negative correlation, gray: not significant, BMI: body mass index, PKY: packages per year, ref.: reference.
+
+\newpage
+
+```{r fig-opacity-rater, fig.width = mm_inch(suppl_figures$any_abnormality_rater$w), fig.height = mm_inch(suppl_figures$any_abnormality_rater$h), dpi = 600, fig.cap = 'Performance of detection of lung CT abnormality by automated opacity assessment.'}
+
+suppl_figures$any_abnormality_rater$plot
+
+```
+
+__Figure \@ref(fig:fig-opacity-rater). Performance of detection of lung CT abnormality by automated opacity assessment.__
+
+Lung CT abnormality were defined either as CTSS $\geq$ 1 0 or as opacity $\geq$ 1$%$ lung volume. Performance of the opacity at detecting CT abnormalities defined by CTSS was investigated at the consecutive follow-ups by receiver-operating characteristic (ROC) and Cohen's $\kappa$ statistic. Numbers of complete observations and CT abnormalities (events) are indicated under the plots.
+
+__(A)__ ROC curves annotated with sensitivity (Se), specificity (Sp) and area under the curve (AUC) values with 95$%$ confidence intervals.
+
+__(B)__ $\kappa$ with 95$%$ confidence intervals presented in a forest plot.
+
+\newpage
+
+```{r fig-ctss-opacity, fig.width = mm_inch(suppl_figures$ctss_opacity$w), fig.height = mm_inch(suppl_figures$ctss_opacity$h), dpi = 600, fig.cap = 'Correlation of CTSS and lung opacity.'}
+
+suppl_figures$ctss_opacity$plot
+
+```
+
+__Figure \@ref(fig:fig-ctss-opacity). Correlation of CTSS and lung opacity.__
+
+Correlation of CTSS and lung opacity at the consecutive follow-ups was investigated with Spearman test. Points represent single observations, blue lines with gray regions represent fitted linear trend with 95$%$ confidence interval. Correlation coefficients (r), p values and numbers of complete observations are indicated in the plot captions.

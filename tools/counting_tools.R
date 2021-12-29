@@ -838,9 +838,11 @@
   
 # making a summary table -----
   
-  get_feature_summary <- function(analysis_object, label = NA, signif_digits = 3) {
+  get_feature_summary <- function(analysis_object, label = NA, signif_digits = 2, short_numerics = FALSE) {
     
     ## makes a table with cohort characteristics which may be used in your paper
+    
+    short_fun <- if(short_numerics) short_number else signif
     
     if(class(analysis_object) == 'list') {
       
@@ -858,21 +860,21 @@
       desc_stats <- analysis_object$stat_tables %>% 
         map(mutate, 
             mean_cell = paste('mean(SD) = ', 
-                              signif(mean, signif_digits), 
+                              short_fun(mean, signif_digits), 
                               ' (', 
-                              signif(sd, signif_digits), 
+                              short_fun(sd, signif_digits), 
                               ')', sep = ''), 
             median_cell = paste('median(IQR) = ', 
-                                signif(median, signif_digits), 
+                                short_fun(median, signif_digits), 
                                 ' (', 
-                                signif(perc25, signif_digits), 
+                                short_fun(perc25, signif_digits), 
                                 ' - ', 
-                                signif(perc75, signif_digits), 
+                                short_fun(perc75, signif_digits), 
                                 ')', sep = ''), 
             min_max_cell = paste('range = ', 
-                                 signif(min, signif_digits), 
+                                 short_fun(min, signif_digits), 
                                  ' - ', 
-                                 signif(max, signif_digits), 
+                                 short_fun(max, signif_digits), 
                                  sep = ''), 
             tbl_cell = paste(mean_cell, 
                              median_cell, 
@@ -1036,6 +1038,16 @@
     
     return(paste('p =', 
                  signif(p_value, signif_digits)))
+    
+  }
+  
+  short_number <- function(vec, signif_digits = 2) {
+    
+    stopifnot(is.numeric(vec))
+    
+    signif(vec, signif_digits) %>% 
+      as.character %>% 
+      stri_replace(regex = '^0.', replacement = '.')
     
   }
   

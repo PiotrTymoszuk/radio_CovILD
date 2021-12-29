@@ -18,60 +18,101 @@
     dlply(.(severity)) %>% 
     c(list(cohort = kinetic$analysis_tbl), .)
   
-# CTSS kinetics -----
+# CTSS, opacity and hig opacity percentage kinetics -----
   
   insert_msg('CTSS kinetic')
   
   ## test
   
-  kinetic$ctss$analysis <- kinetic$analysis_tbl %>% 
-    map(~friedman_test(ctss ~ visit|ID, data = .x))
-  
+  kinetic$numeric$analysis <- list(ctss = ctss ~ visit|ID, 
+                                   perc_opac = perc_opac ~ visit|ID, 
+                                   perc_hiopac = perc_hiopac ~ visit|ID) %>% 
+    map(function(outcome) kinetic$analysis_tbl %>% 
+          map(friedman_test, 
+                  formula = outcome) %>% 
+          map2_dfr(., names(.), ~mutate(.x, subset = .y)))
+
   ## summary
   
-  kinetic$ctss$summary <- kinetic$ctss$analysis %>% 
-    map2_dfr(., names(.), ~mutate(.x, subset = .y, p_value = p)) %>% 
-    mutate(p_adj = p.adjust(p_value, 'BH'), 
-           plot_caption = paste0('\u03C7 = ', signif(statistic, 2), 
-                                 ', df = 3, p = ', signif(p_value, 2)))
+  kinetic$numeric$summary <- kinetic$numeric$analysis %>% 
+    map(mutate, 
+        p_value = p, 
+        p_adj = p.adjust(p_value, 'BH'), 
+        plot_caption = paste0('\u03C7 = ', signif(statistic, 2), 
+                              ', df = 3, ', format_p(p_value, 2)))
   
   ## effect size determined by Kendall W, updating the plot_caption
   
   plan('multisession')
   
-  kinetic$ctss$effsize <- kinetic$analysis_tbl %>% 
-    future_map(~friedman_effsize(ctss ~ visit|ID, 
-                                 data = .x, 
-                                 ci = TRUE, 
-                                 ci.type = 'bca'), 
-               .options = furrr_options(seed = TRUE)) %>% 
-    map2_dfr(., names(.), ~mutate(.x, subset = .y))
-  
-  kinetic$ctss$summary <- kinetic$ctss$summary %>% 
-    mutate(plot_caption = list(x = plot_caption, 
-                               y = kinetic$ctss$effsize$effsize, 
-                               lo = kinetic$ctss$effsize$conf.low, 
-                               hi = kinetic$ctss$effsize$conf.high) %>% 
-             pmap_chr(function(x, y, lo, hi) paste0(x, ', W = ', signif(y, 2), ' [', signif(lo, 2), ' - ', signif(hi, 2), ']')))
+  kinetic$numeric$effsize <- list(ctss = ctss ~ visit|ID, 
+                               perc_opac = perc_opac ~ visit|ID, 
+                               perc_hiopac = perc_hiopac ~ visit|ID) %>% 
+    map(function(outcome) kinetic$analysis_tbl %>% 
+          future_map(friedman_effsize, 
+                     formula = outcome, 
+                     ci = TRUE, 
+                     ci.type = 'bca', 
+                     .options = furrr_options(seed = TRUE)) %>% 
+          map2_dfr(., names(.), ~mutate(.x, subset = .y)))
+
+  kinetic$numeric$summary <- map2(kinetic$numeric$summary, 
+                                  kinetic$numeric$effsize, 
+                                  ~mutate(.x, 
+                                          w = paste0(signif(.y$effsize, 2), 
+                                                     ' [', signif(.y$conf.low, 2), 
+                                                     ' - ', signif(.y$conf.high, 2), ']'), 
+                                          plot_caption = paste(plot_caption, w, sep = ', W = ')))
 
   plan('sequential')
   
   ## post-hoc tests
   
-  kinetic$ctss$post_hoc <- kinetic$analysis_tbl %>% 
-    future_map(~compare_means(ctss ~ visit, data = .x, 
-                              paired = TRUE, 
-                              method = 'wilcox.test', 
-                              p.adjust.method = 'holm'))
+  kinetic$numeric$post_hoc <- list(ctss = ctss ~ visit, 
+                                   perc_opac = perc_opac ~ visit, 
+                                   perc_hiopac = perc_hiopac ~ visit) %>% 
+    map(function(outcome) kinetic$analysis_tbl %>% 
+          future_map(compare_means, 
+                     formula = outcome,  
+                     paired = TRUE, 
+                     method = 'wilcox.test', 
+                     p.adjust.method = 'holm'))
   
   ## plots
   
-  kinetic$ctss$plots <- list(data = kinetic$analysis_tbl, 
-                             plot_title = globals$subset_labels, 
-                             plot_subtitle = kinetic$ctss$summary$plot_caption, 
-                             fill_color = globals$subset_colors) %>% 
+  kinetic$numeric$plots_ctss <- list(data = kinetic$analysis_tbl, 
+                                     plot_title = globals$subset_labels, 
+                                     plot_subtitle = kinetic$numeric$summary$ctss$plot_caption, 
+                                     fill_color = globals$subset_colors) %>% 
     pmap(plot_ctss) %>% 
-    map2(., kinetic$ctss$post_hoc, add_ctss_post_p)
+    map2(., kinetic$numeric$post_hoc$ctss, 
+         add_ctss_post_p)
+  
+  kinetic$numeric$plots_opacity <- list(data = kinetic$analysis_tbl, 
+                                        plot_title = globals$subset_labels, 
+                                        plot_subtitle = kinetic$numeric$summary$perc_opac$plot_caption, 
+                                        fill_color = globals$subset_colors) %>% 
+    pmap(plot_ctss, 
+         plot_var = 'perc_opac', 
+         y_lab = 'Opacity, % lung') %>% 
+    map2(., kinetic$numeric$post_hoc$perc_opac, 
+         add_ctss_post_p, 
+         line_y = 34, 
+         voffset = 3, 
+         text_offset = 0.7)
+  
+  kinetic$numeric$plots_hiopacity <- list(data = kinetic$analysis_tbl, 
+                                          plot_title = globals$subset_labels, 
+                                          plot_subtitle = kinetic$numeric$summary$perc_hiopac$plot_caption, 
+                                          fill_color = globals$subset_colors) %>% 
+    pmap(plot_ctss, 
+         plot_var = 'perc_hiopac', 
+         y_lab = 'High opacity, % lung') %>% 
+    map2(., kinetic$numeric$post_hoc$perc_hiopac, 
+         add_ctss_post_p, 
+         line_y = 2.1, 
+         voffset = 0.4, 
+         text_offset = 0.05)
   
 # Binary CT features -----
   
@@ -83,7 +124,9 @@
                                 'ggo', 
                                 'retic', 
                                 'consol', 
-                                'bronch')
+                                'bronch', 
+                                'opacity', 
+                                'hiopacity')
   
   kinetic$binary$formulas <- paste(kinetic$binary$variables, '~ time_months + (1|ID)') %>% 
     map(as.formula) %>% 
@@ -120,7 +163,7 @@
                         df = .x[['Df']][2], 
                         p_value = .x[['Pr(>Chisq)']][2])) %>% 
     map(~safely(mutate)(.x$result, plot_caption = paste0('LRT: \u03C7 = ', signif(chisq, 2), 
-                                                          ', df = 1, p = ', signif(p_value, 2)))) %>% 
+                                                          ', df = 1, ', format_p(p_value, 2)))) %>% 
     map(~.x$result)
   
   kinetic$binary$lrt_captions <- kinetic$binary$lrt_summary %>% 

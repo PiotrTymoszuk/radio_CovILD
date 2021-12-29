@@ -58,10 +58,10 @@
           starts_with('fup'), 
           significance) %>% 
    set_names(c('Variable', 
-               '60-day FUP', 
-               '100-day FUP', 
-               '180-day FUP', 
-               '360-day FUP', 
+               '2-month FUP', 
+               '3-month FUP', 
+               '6-month FUP', 
+               '1-year FUP', 
                'Significance'))
  
 # Table 6: CT abnormalities at the visits, severity ----
@@ -75,10 +75,10 @@
           significance) %>% 
    set_names(c('Severity', 
                'Variable', 
-               '60-day FUP', 
-               '100-day FUP', 
-               '180-day FUP', 
-               '360-day FUP', 
+               '2-month FUP', 
+               '3-month FUP', 
+               '6-month FUP', 
+               '1-year FUP', 
                'Significance'))
  
 # Table 6: CT abnormalities between the severity groups -----
@@ -106,16 +106,36 @@
  
  insert_msg('Table 7: CTSS at the consecutive visits')
  
- paper_tables$ctss <- eda$ctss$summary %>% 
+ paper_tables$ctss <- eda$numeric$summary$ctss %>% 
    select(subset, 
           starts_with('fup'), 
           significance) %>% 
    set_names(c('Severity',  
-               '60-day FUP', 
-               '100-day FUP', 
-               '180-day FUP', 
-               '360-day FUP', 
+               '2-month FUP', 
+               '3-month FUP', 
+               '6-month FUP', 
+               '1-year FUP', 
                'Significance'))
+ 
+# Table 8: percent opacity and high opacity -----
+ 
+ insert_msg('Table 8: Percent opacity and high opacity')
+ 
+ paper_tables$opacity <- eda$numeric$summary[c('perc_opac', 'perc_hiopac')] %>% 
+    map2_dfr(., c('Opacity, % lung volume', 
+                  'High opacity, % lung volume'),  
+             ~mutate(.x, variable = .y)) %>% 
+    select(variable, 
+           subset, 
+           starts_with('fup'), 
+           significance) %>% 
+    set_names(c('Variable', 
+                'Severity',  
+                '2-month FUP', 
+                '3-month FUP', 
+                '6-month FUP', 
+                '1-year FUP', 
+                'Significance'))
  
 # Saving the tables as an excel file ----
  

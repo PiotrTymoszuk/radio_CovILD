@@ -5,7 +5,7 @@
   require(rlang)
   require(stringi)
   require(foreign)
-
+  require(vcd)
   
 # data import and transformation -----
   
@@ -247,9 +247,7 @@
     
     data_frame %>% 
       mutate(p_adj = p.adjust(p_value, 'BH'), 
-             significance = ifelse(.data[[signif_var]] < 0.05, 
-                                   paste('p =', signif(p_value, 2)), 
-                                   paste0('ns (p = ', signif(p_value, 2), ')')), 
+             significance = format_p(.data[[signif_var]]), 
              label = translate_var(variable), 
              test = ifelse(class == 'factor', 'Chi squared', 'one-way ANOVA')) %>% 
       map_dfc(function(x) if(is.character(x)) stri_replace(x, regex = '^.*\\nyes:\\s{1}', replacement = '') else x)
@@ -259,6 +257,8 @@
 # kinetic plotting -----
   
   plot_ctss <- function(data, 
+                        plot_var = 'ctss', 
+                        y_lab = 'CTSS', 
                         plot_title = NULL, 
                         plot_subtitle = NULL, 
                         fill_color = 'firebrick') {
@@ -271,14 +271,14 @@
     med_tbl <- data %>% 
       dlply(.(visit)) %>% 
       map_dfr(analyze_feature, 
-              variable = 'ctss') %>% 
+              variable = plot_var) %>% 
       mutate(time_months = c(2, 3, 6, 12))
     
     ## plot
     
     data %>% 
       ggplot(aes(x = time_months, 
-                 y = ctss)) + 
+                 y = .data[[plot_var]])) + 
       geom_ribbon(data = med_tbl, 
                   aes(y = median, 
                       ymin = perc25, 
@@ -297,7 +297,7 @@
            subtitle = plot_subtitle, 
            tag = paste('\nn =', med_tbl$n_complete[1]), 
            x = 'Months post COVID-19', 
-           y = 'CTSS')
+           y = y_lab)
     
   }
   
@@ -351,13 +351,16 @@
   add_ctss_post_p <- function(plot, 
                               post_hoc_results, 
                               p_var = 'p', 
-                              hoffset = 0.15) {
+                              hoffset = 0.15, 
+                              line_y = 21, 
+                              voffset = 2, 
+                              text_offset = 0.35) {
     
     ## adds the results of sequential post-hoc testing to the ctss plot
     
     cmm_rocode <- "'fup1' = 2; 'fup2' = 3; 'fup3' = 6; 'fup4' = 12"
     
-    y <- c(21, 19, 17)
+    y <- c(line_y, line_y - voffset, line_y - 2*voffset)
     
     post_hoc_results <- post_hoc_results %>% 
       mutate(comparison = paste(group1, group2, sep = ':')) %>% 
@@ -369,9 +372,7 @@
              x_text = (x1 + x0)/2, 
              x0 = x0 + hoffset, 
              x1 = x1 - hoffset, 
-             p_lab = ifelse(.data[[p_var]] < 0.05, 
-                            paste('p =', signif(.data[[p_var]], 2)), 
-                            paste0('ns (p = ', signif(.data[[p_var]], 2), ')')))
+             p_lab = format_p(.data[[p_var]], 2))
     
     plot + 
       scale_y_continuous(limits = NULL) + 
@@ -382,7 +383,7 @@
                        yend = y1)) + 
       geom_text(data = post_hoc_results, 
                 aes(x = x_text, 
-                    y = y1 + 0.25, 
+                    y = y1 + text_offset, 
                     label = p_lab), 
                 size = 2.75, 
                 hjust = 0.3, 
@@ -416,12 +417,12 @@
     
     summary_tbl <- summary_tbl %>% 
       mutate(var_lab = translate_var(variable), 
-             var_lab = ifelse(variable == 'baseline', 'Baseline', var_lab),
-             var_lab = factor(var_lab, levels = unique(c('Baseline', unique(var_lab)))), 
+             var_lab = ifelse(variable == 'baseline', 'Ref.', var_lab),
+             var_lab = factor(var_lab, levels = unique(c('Ref.', unique(var_lab)))), 
              xax_lab = ifelse(level != 'baseline', 
                               paste0(level_fct, ', n = ', n_level), 
-                              paste0(level_fct, ' (baseline), n = ', n_level)), 
-             xax_lab = ifelse(variable == 'baseline', 'baseline', xax_lab), 
+                              paste0(level_fct, ' (ref.), n = ', n_level)), 
+             xax_lab = ifelse(variable == 'baseline', 'reference', xax_lab), 
              est_lab = paste0(signif(estimate, 2), ' [', signif(lower_ci, 2), ' - ', signif(upper_ci, 2), ']'), 
              significant = ifelse(p_value < 0.05, 'yes', 'no'), 
              regulation = ifelse(significant == 'no', 'ns', 
@@ -471,4 +472,163 @@
   }
   
 
+# inter-rater -----
+  
+  rater_tbl <- function(data, ...) {
+    
+    data %>% 
+      dlply(.(visit)) %>% 
+      map(select, ...) %>% 
+      map(~filter(.x, complete.cases(.x)))
+    
+  }
+  
+  Kappa_pipe <- function(table) {
+    
+    ## calculates unweighted kappa
+    
+    kappa_obj <- Kappa(table)
+    
+    kappa_ci <- confint(kappa_obj)
+
+    tibble(kappa = kappa_obj$Unweighted['value'], 
+           se = kappa_obj$Unweighted['ASE'], 
+           lower_ci = kappa_ci[1, 1], 
+           upper_ci = kappa_ci[1, 2]) %>% 
+      mutate(plot_lab = paste0(signif(kappa, 2), 
+                               ' [', signif(upper_ci, 2), 
+                               ' - ', signif(lower_ci, 2), ']'))
+        
+  }
+  
+  plot_kappa <- function(data, 
+                         plot_title = NULL, 
+                         plot_subtitle = NULL, 
+                         plot_tag = NULL) {
+    
+    data %>% 
+      ggplot(aes(x = kappa, 
+                 y = visit, 
+                 color = visit)) + 
+      geom_errorbarh(aes(xmin = lower_ci, 
+                         xmax = upper_ci), 
+                     height = 0) +
+      geom_point(shape = 16, 
+                 size = 2) + 
+      geom_text(aes(label = plot_lab), 
+                size = 2.75, 
+                hjust = 0.7, 
+                vjust = -0.7) + 
+      scale_color_manual(values = globals$visit_colors, 
+                         labels = globals$visit_labels, 
+                         name = 'Follow-up') + 
+      scale_y_discrete(labels = globals$visit_labels) + 
+      globals$common_theme +
+      labs(title = plot_title, 
+           subtitle = plot_subtitle, 
+           tag = plot_tag, 
+           x = expression(kappa), 
+           y = 'Follow-up')
+    
+  }
+  
+  plot_roc <- function(data, d_var, m_var, 
+                       roc_stats,
+                       plot_title = NULL, 
+                       plot_subtitle = NULL, 
+                       plot_tag = NULL) {
+    
+    ## plots a customized ROC plot
+    
+    data %>% 
+      ggplot(aes(d = as.numeric(.data[[d_var]]) - 1, 
+                 m = as.numeric(.data[[m_var]]) - 1, 
+                 color = visit)) + 
+      geom_roc(labels = FALSE) + 
+      style_roc() + 
+      geom_abline(intercept = 0, 
+                  slope = 1, 
+                  color = 'gray60') + 
+      geom_text(data = roc_stats, 
+                aes(x = x_annotation, 
+                    y = y_annotation, 
+                    label = plot_annotation), 
+                size = 2.75, 
+                hjust = 0, 
+                vjust = 1, 
+                show.legend = FALSE) + 
+      scale_color_manual(values = globals$visit_colors, 
+                         labels = globals$visit_labels, 
+                         name = 'Follow-up') + 
+      theme(axis.text = globals$common_text, 
+            axis.title = globals$common_text, 
+            plot.subtitle = globals$common_text, 
+            plot.tag.position = 'bottom', 
+            plot.tag = globals$common_text, 
+            plot.margin = globals$common_margin, 
+            legend.title = globals$common_text, 
+            legend.text = globals$common_text, 
+            plot.title = element_text(size = 8, face = 'bold')) + 
+      labs(title = plot_title, 
+           subtitle = plot_subtitle, 
+           tag = plot_tag)
+    
+  }
+  
+  correlation_plot <- function(data, 
+                               x_var = 'ctss', 
+                               y_var = 'perc_opac', 
+                               x_lab = 'CTSS', 
+                               y_lab = 'Opacity, % lung', 
+                               plot_title = NULL, 
+                               plot_subtitle = NULL, 
+                               plot_tag = NULL, 
+                               fill_color = 'steelblue', 
+                               jitter_w = 0, 
+                               jitter_h = 0, 
+                               point_alpha = 0.75) {
+    
+    data %>% 
+      ggplot(aes(x = .data[[x_var]], 
+                 y = .data[[y_var]])) + 
+      geom_point(shape = 21, 
+                 size = 2, 
+                 fill = fill_color, 
+                 alpha = point_alpha, 
+                 position = position_jitter(width = jitter_w, 
+                                            height = jitter_h)) + 
+      geom_smooth(method = 'lm') + 
+      globals$common_theme + 
+      labs(title = plot_title, 
+           subtitle = plot_subtitle, 
+           tag = plot_tag, 
+           x = x_lab, 
+           y = y_lab)
+    
+  }
+  
+# number formatting -----
+  
+  short_number <- function(vec, signif_digits = 2) {
+    
+    stopifnot(is.numeric(vec))
+    
+    signif(vec, signif_digits) %>% 
+      as.character %>% 
+      stri_replace(regex = '^0.', replacement = '.')
+    
+  }
+
+  format_p <- function(vec, signif_digits = 2) {
+    
+    stopifnot(is.numeric(vec))
+    
+    ifelse(vec < 0.001, 
+           'p < .001', 
+           ifelse(vec >= 0.05, 
+                  paste0('ns (p = ', short_number(vec, signif_digits), ')'), 
+                  paste('p =', short_number(vec, signif_digits))))
+    
+  }
+    
 # END -----

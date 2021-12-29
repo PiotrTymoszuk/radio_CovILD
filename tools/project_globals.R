@@ -52,5 +52,15 @@
                              severe = 'Severe COVID-19', 
                              critical = 'Critical COVID-19')
   
+  globals$visit_labels <- c('fup1' = '2-month', 
+                            'fup2' = '3-month', 
+                            'fup3' = '6-month', 
+                            'fup4' = '1-year')
+  
+  globals$visit_colors <- c('fup1' = 'firebrick3', 
+                            'fup2' = 'cornsilk4', 
+                            'fup3' = 'darkolivegreen4', 
+                            'fup4' = 'steelblue')
+  
 # END -----
   

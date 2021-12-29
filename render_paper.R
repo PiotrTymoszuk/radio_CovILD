@@ -16,7 +16,8 @@
   insert_msg('Sourcing the paper scripts')
   
   c('./paper scripts/paper_tables.R', 
-    './paper scripts/paper_figures.R') %>% 
+    './paper scripts/paper_figures.R', 
+    './paper scripts/deploy_paper.R') %>% 
     walk(source)
   
 # END -----

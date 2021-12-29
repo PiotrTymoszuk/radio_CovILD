@@ -1,7 +1,7 @@
 # This script models risk of any, moderate-severe, severe, ggo, reticulation, consolidations and bronchial dilatation 
 # (logistic regression) as well as of the abnormality grading at the 1-year follow-up. Explanatory variables
 # are> sex, age, severity, bin, smoking parameters as well as initial CT abnormality severity (CTSS with the cutoffs 5 and 10)
-# Multi-paramater models are constructed by backward elimination and validated by 20-fold CV
+# Multi-parameter models are constructed by backward elimination and validated by 20-fold CV
 
   insert_head()
   
@@ -18,17 +18,21 @@
   
   risk$outcomes <-  c('ggo_fup4', 
                       'retic_fup4', 
-                      'pili_fup4', 
                       'ctss_any_fup4', 
-                      'ctss_fup4')
+                      'opacity_fup4', 
+                      'ctss_fup4', 
+                      'log_perc_opac_fup4')
   
   risk$outcome_forms <- risk$outcomes %>% 
     map(~paste(.x, paste(risk$explanatory_vars, collapse = '+'), sep = '~')) %>% 
     map(as.formula)
   
-  risk$families <- c(rep('binomial', 4), 'poisson')
+  risk$families <- c(rep('binomial', 4), 
+                     'poisson', 
+                     'gaussian')
   
-  risk$analysis_tbl <- radio$clear
+  risk$analysis_tbl <- radio$clear %>% 
+    mutate(log_perc_opac_fup4 = log(perc_opac_fup4 + 1))
   
   for(i in risk$outcomes) {
     
@@ -97,13 +101,14 @@
   risk$univariate_plots <- list(summary_tbl = risk$univariate_summary, 
                                 plot_title = c('GGO, 1-year FUP', 
                                                'Reticulations, 1-year FUP', 
-                                               'PILI, 1-year FUP', 
-                                               'Any CT abnormality, 1-year FUP', 
-                                               'CTSS, 1-year FUP'), 
+                                               'CT abnormality, 1-year FUP', 
+                                               'Opacity, 1-year FUP', 
+                                               'CTSS, 1-year FUP', 
+                                               '% opacity, 1-year FUP'), 
                                 plot_subtitle = c(rep('Logistic regression', 4),  
-                                                      'Poisson regression'), 
-                                hide_baseline_est = c(rep(TRUE, 4), FALSE), 
-                                x_lab = c(rep('OR', 4), 'exp \u03B2')) %>% 
+                                                  rep('Poisson regression', 2)), 
+                                hide_baseline_est = c(rep(TRUE, 4), rep(FALSE, 2)), 
+                                x_lab = c(rep('OR', 4), rep('exp \u03B2', 2))) %>% 
     pmap(plot_forest, 
          x_trans = 'log2')
 
@@ -120,9 +125,10 @@
   risk$multivariate_models <- list(form = risk$outcome_forms, 
                                    family = risk$families, 
                                    metric = c(rep('Kappa', 4), 
-                                              'RMSE')) %>% 
+                                              rep('RMSE', 2))) %>% 
     future_pmap(train, 
-                data =  radio$clear, 
+                data =  radio$clear %>% 
+                  mutate(log_perc_opac_fup4 = log(perc_opac_fup4 + 1)), 
                 method = 'glmStepAIC', 
                 trControl = trainControl(method = 'cv', 
                                          number = 20, 
@@ -177,23 +183,26 @@
                               ', Se = ', signif(sens, 2), 
                               ', Sp = ', signif(spec, 2)))
   
-  risk$multivariate_cv$ctss_fup4 <- risk$multivariate_models$ctss_fup4$results[c('MAE', 'Rsquared')] %>% 
-    mutate(outcome = 'ctss_any_fup4', 
-           plot_caption = paste0('Poisson regression, n = ', nrow(risk$analysis_tbl), 
-                                 ', CV: MAE = ', signif(MAE, 2), 
-                                 ', Rsq = ', signif(Rsquared, 2)))
-  
+  risk$multivariate_cv[risk$outcomes[5:6]] <- risk$multivariate_models[risk$outcomes[5:6]] %>% 
+    map(~.x$results[c('MAE', 'Rsquared')]) %>% 
+    map2(., names(.), ~mutate(.x, 
+                              outcome = .y, 
+                              plot_caption = paste0('Poisson regression, n = ', nrow(risk$analysis_tbl), 
+                                                    ', CV: MAE = ', signif(MAE, 2), 
+                                                    ', Rsq = ', signif(Rsquared, 2))))
+ 
   ## forest plots
   
   risk$multivariate_plots <- list(summary_tbl = risk$multivariate_summary, 
                                   plot_title = c('GGO, 1-year FUP', 
                                                  'Reticulations, 1-year FUP', 
-                                                 'PILI, 1-year FUP', 
-                                                 'Any CT abnormality, 1-year FUP', 
-                                                 'CTSS, 1-year FUP'), 
+                                                 'CT abnormality, 1-year FUP', 
+                                                 'Opacity, 1-year FUP', 
+                                                 'CTSS, 1-year FUP', 
+                                                 '% opacity, 1-year FUP'), 
                                   plot_subtitle = map(risk$multivariate_cv, ~.x$plot_caption), 
-                                  hide_baseline_est = c(rep(TRUE, 4), FALSE), 
-                                  x_lab = c(rep('OR', 4), 'exp \u03B2')) %>% 
+                                  hide_baseline_est = c(rep(TRUE, 4), rep(FALSE, 2)), 
+                                  x_lab = c(rep('OR', 4), rep('exp \u03B2', 2))) %>% 
     pmap(plot_forest, 
          x_trans = 'log2')
   
