@@ -40,11 +40,11 @@
   
   insert_msg('Variable representation')
 
-  globals$subset_colors <- c('cohort' = 'gray30', 
+  globals$subset_colors <- c('cohort' = 'plum3', 
                              'mild' = 'steelblue', 
                              'moderate' = 'cornsilk4', 
                              'severe' = 'coral3', 
-                             'critical' = 'firebrick')  
+                             'critical' = 'firebrick3')  
   
   globals$subset_labels <- c(cohort = 'Cohort', 
                              mild = 'Mild COVID-19', 

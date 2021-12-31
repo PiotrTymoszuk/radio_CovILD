@@ -6,6 +6,7 @@
   require(stringi)
   require(foreign)
   require(vcd)
+  require(rcompanion)
   
 # data import and transformation -----
   
@@ -254,7 +255,248 @@
     
   }
   
-# kinetic plotting -----
+# kinetic modeling and plotting -----
+  
+  compare_effects <- function(data, 
+                              response = 'ctss', 
+                              indep_var = 'visit', 
+                              group_var = 'ID',
+                              invert = FALSE, 
+                              parallel = FALSE, 
+                              ci.type = 'norm') {
+    
+    ## pairwise effect size
+    
+    start_time <- Sys.time()
+    on.exit(message(paste('Elapsed:', Sys.time() - start_time)))
+    
+    pairs <- combn(unique(data[[indep_var]]), m = 2, simplify = FALSE)
+    
+    group_tbl <- pairs %>% 
+      map_dfr(~tibble(.y = response, 
+                      group1 = .x[1], 
+                      group2 = .x[2]))
+    
+    mod_tbl <- pairs %>% 
+      map(~filter(data, .data[[indep_var]] %in% .x)) %>% 
+      map(arrange, .data[[group_var]]) %>% 
+      map(mutate, 
+          x_fct = droplevels(.data[[indep_var]]))
+    
+    N <- mod_tbl %>% 
+      map(filter, !duplicated(.data[[group_var]])) %>% 
+      map_dbl(nrow)
+    
+    ## pairwise effect size calculation
+  
+    my_kendall <- function(x, y) {
+      
+      kendall_res <- try(KendallTauB(x, y, conf.level = 0.95), silent = TRUE)
+      
+      if(any(class(kendall_res) == 'try-error')) {
+        
+        warning('The factor value is invariant!', call. = FALSE)
+        
+        kendall_res <- c(tau_b = 0, lwr.ci = NA, upr.ci = NA)
+        
+      }
+      
+      return(kendall_res)
+      
+    }
+    
+    my_freeman <- function(tbl) {
+      
+      freeman <- try(freemanTheta(tbl, 
+                                  ci = TRUE, 
+                                  type = ci.type, 
+                                  R = 1000), 
+                     silent = TRUE)
+      
+      if(any(class(freeman) == 'try-error')) {
+        
+        warning('The factor value is invariant!', call. = FALSE)
+        
+        freeman <- tibble(Freeman.theta = 0, 
+                          lower.ci = NA, 
+                          upper.ci = NA)  
+      }
+      
+      return(freeman)
+      
+    }
+    
+    kendall_tau <- mod_tbl %>% 
+      map(~my_kendall(x = as.numeric(.x[[response]]), 
+                      y = as.numeric(.x[[indep_var]]))) %>% 
+            map_dfr(~tibble(tau_b = .x[1], 
+                            tau_lower_ci = .x[2], 
+                            tau_upper_ci = .x[3]))
+    
+    if(invert) {
+      
+      kendall_tau <- kendall_tau %>% 
+        mutate(tau_b = -tau_b, 
+               trans_lower = tau_lower_ci, 
+               trans_upper = tau_upper_ci, 
+               tau_lower_ci = -trans_upper, 
+               tau_upper_ci = -trans_lower) %>% 
+        select( - trans_lower, - trans_upper)
+      
+    }
+    
+    if(is.numeric(data[[response]])) {
+      
+      wilcox_z <- mod_tbl %>% 
+        map(~dlply(.x, indep_var) %>% 
+              map(~.x[c(response, group_var)]) %>% 
+              reduce(left_join, by = group_var) %>% 
+              select(starts_with(response))) %>% 
+        map_dbl(~wilcoxonZ(.x[[2]], .x[[1]], paired = TRUE)) %>% 
+        tibble(z = ., 
+               n = N, 
+               r = ./sqrt(N))
+      
+      if(invert) {
+        
+        wilcox_z <- wilcox_z %>% 
+          mutate(z = -z, 
+                 r = -r)
+        
+      }
+      
+      ## output
+      
+      list(group_tbl, 
+           kendall_tau, 
+           wilcox_z) %>% 
+        reduce(cbind) %>% 
+        as_tibble
+      
+    } else {
+      
+      if(parallel) {
+        
+        plan('multisession')
+        
+        theta <- mod_tbl %>% 
+          map(~table(.x[[response]], .x[['x_fct']])) %>% 
+          future_map_dfr(my_freeman, 
+                         .options = furrr_options(seed = TRUE)) %>% 
+          set_names(c('theta', 'theta_lower_ci', 'theta_upper_ci'))
+        
+        plan('sequential')
+        
+      } else {
+        
+        theta <- mod_tbl %>% 
+          map(~table(.x[[response]], .x[['x_fct']])) %>% 
+          map_dfr(my_freeman) %>% 
+          set_names(c('theta', 'theta_lower_ci', 'theta_upper_ci'))
+        
+      }
+
+      ## output
+      
+      list(group_tbl, 
+           kendall_tau, 
+           theta) %>% 
+        reduce(cbind) %>% 
+        as_tibble
+  
+    }
+    
+  }
+  
+  plot_effects <- function(eff_size_data, 
+                           eff_var = c('r', 'tau_b', 'theta'), 
+                           plot_title = NULL, 
+                           plot_subtitle = NULL, 
+                           plot_tag = NULL, 
+                           x_lab = 'Months post COVID-19', 
+                           y_lab = 'Recovery effect, R', 
+                           ci = TRUE, 
+                           dodge_w = 0) {
+    
+    ## plots effect size at the consecutive visits
+    
+    eff_var <- match.arg(eff_var[1], c('r', 'tau_b', 'theta'))
+    
+    plotting_tbl <- eff_size_data %>% 
+      mutate(comparison = paste(group1, group2, sep = '-'), 
+             severity = factor(severity, names(globals$subset_colors))) %>% 
+      filter(comparison %in% c('fup1-fup2', 'fup2-fup3', 'fup3-fup4')) %>% 
+      mutate(time = car::recode(comparison, "'fup1-fup2' = '3 vs 2'; 'fup2-fup3' = '6 vs 3'; 'fup3-fup4' = '12 vs 6'"), 
+             time = factor(time, c('3 vs 2', '6 vs 3', '12 vs 6')))
+    
+    if(ci) {
+      
+      base_plot <- switch(eff_var, 
+                          r = ggplot(plotting_tbl, 
+                                     aes(x = time, 
+                                         y = r, 
+                                         color = severity) + 
+                                       geom_hline(yintercept = 0, 
+                                                  linetype = 'dashed')), 
+                          tau_b = ggplot(plotting_tbl, 
+                                         aes(x = time, 
+                                             y = tau_b, 
+                                             color = severity)) + 
+                            geom_hline(yintercept = 0, 
+                                       linetype = 'dashed') + 
+                            geom_errorbar(aes(ymin = tau_lower_ci, 
+                                              ymax = tau_upper_ci), 
+                                          width = 0, 
+                                          position = position_dodge(dodge_w)), 
+                          theta = ggplot(plotting_tbl, 
+                                         aes(x = time, 
+                                             y = theta, 
+                                             color = severity)) + 
+                            geom_hline(yintercept = 0, 
+                                       linetype = 'dashed') + 
+                            geom_errorbar(aes(ymin = theta_lower_ci, 
+                                              ymax = theta_upper_ci), 
+                                          width = 0, 
+                                          position = position_dodge(dodge_w)))
+      
+    } else {
+      
+      base_plot <- switch(eff_var, 
+                          r = ggplot(plotting_tbl, 
+                                     aes(x = time, 
+                                         y = r, 
+                                         color = severity)), 
+                          tau_b = ggplot(plotting_tbl, 
+                                         aes(x = time, 
+                                             y = tau_b, 
+                                             color = severity)), 
+                          theta = ggplot(plotting_tbl, 
+                                         aes(x = time, 
+                                             y = theta, 
+                                             color = severity)))
+      base_plot <- base_plot + 
+        geom_hline(yintercept = 0, 
+                   linetype = 'dashed')
+      
+    }
+    
+    base_plot + 
+      geom_line(aes(group = severity), 
+                position = position_dodge(dodge_w)) + 
+      geom_point(shape = 16, 
+                 size = 2, 
+                 position = position_dodge(dodge_w)) + 
+      scale_color_manual(values = globals$subset_colors, 
+                         labels = globals$subset_labels, 
+                         name = '') + 
+      globals$common_theme +
+      labs(title = plot_title, 
+           subtitle = plot_subtitle, 
+           tag = plot_tag, 
+           x = x_lab, 
+           y = y_lab)
+    
+  }
   
   plot_ctss <- function(data, 
                         plot_var = 'ctss', 
@@ -386,7 +628,7 @@
                     y = y1 + text_offset, 
                     label = p_lab), 
                 size = 2.75, 
-                hjust = 0.3, 
+                hjust = 0.2, 
                 vjust = 0)
     
   }
@@ -496,8 +738,8 @@
            lower_ci = kappa_ci[1, 1], 
            upper_ci = kappa_ci[1, 2]) %>% 
       mutate(plot_lab = paste0(signif(kappa, 2), 
-                               ' [', signif(upper_ci, 2), 
-                               ' - ', signif(lower_ci, 2), ']'))
+                               ' [', signif(lower_ci, 2), 
+                               ' - ', signif(upper_ci, 2), ']'))
         
   }
   
@@ -572,6 +814,92 @@
       labs(title = plot_title, 
            subtitle = plot_subtitle, 
            tag = plot_tag)
+    
+  }
+  
+  interrater <- function(data, 
+                         d_var = 'ggo', 
+                         m_var = 'opacity', 
+                         plot_title = 'GGO', 
+                         plot_subtitle = 'GGO versus automated opacity') {
+    
+    
+    ## calculates and visualizes Cohen's kappa and ROC
+    
+    res <- list()
+    
+    ## table objects
+    
+    res$tables <- data %>% 
+      rater_tbl(!!ensym(d_var), !!ensym(m_var)) %>% 
+      map(~table(.x[c(d_var, m_var)]))
+    
+    ## n numbers
+    
+    res$n_numbers <- map2(map(res$tables, sum), 
+                          map(res$tables, ~sum(.x[2, ])), 
+                          ~paste0('total: n = ', .x, ', events: n = ', .y))
+    
+    res$n_tag <- map2_chr(globals$visit_labels, 
+                          res$n_numbers, 
+                          paste, sep = '\n')
+    
+    ## Kappa calculation
+    
+    res$kappa <- res$tables %>% 
+      map(Kappa_pipe) %>% 
+      map2_dfr(., names(.), ~mutate(.x, visit = .y)) %>% 
+      mutate(visit = factor(visit, levels = rev(visit)))
+    
+    ## ROC
+    
+    res$cutpoint <- data %>% 
+      rater_tbl(!!ensym(d_var), !!ensym(m_var)) %>% 
+      map(~map_dfc(.x, ~as.numeric(.x) - 1)) %>% 
+      map(find_optimal_cutoff, 
+          status_variable = d_var, 
+          marker = m_var)
+    
+    res$roc_stats <- res$cutpoint %>% 
+      map(get_optimal_cutpoint_coefs) %>% 
+      map(unlist, recursive = FALSE) %>% 
+      map(~.x[2:3]) %>%
+      as_tibble %>% 
+      t %>% 
+      as.data.frame %>% 
+      set_names(c('Se', 'Sp')) %>% 
+      rownames_to_column('visit')
+    
+    res$roc_stats <- res$cutpoint %>% 
+      map_dfr(get_auc) %>% 
+      cbind(res$roc_stats, .) %>% 
+      as_tibble %>% 
+      mutate(plot_annotation = paste0('Se = ', signif(Se, 2), 
+                                      ', Sp = ', signif(Sp, 2), 
+                                      ', AUC = ', signif(AUC, 2), 
+                                      ' [', signif(lowerCI, 2), 
+                                      ' - ', signif(upperCI, 2), ']'), 
+             y_annotation = c(0.22, 0.16, 0.1, 0.04), 
+             x_annotation = 0.26, 
+             !!ensym(d_var) := 'yes', 
+             !!ensym(m_var) := 'yes')
+    
+    ## kappa and ROC plots
+    
+    res$kappa_plot <- plot_kappa(data = res$kappa, 
+                                 plot_title = plot_title, 
+                                 plot_subtitle = plot_subtitle) + 
+      scale_x_continuous(limits = c(0, 1))
+    
+    res$roc_plot <- plot_roc(data = data, 
+                             d_var = d_var, 
+                             m_var = m_var, 
+                             roc_stats = res$roc_stats, 
+                             plot_title = plot_title, 
+                             plot_subtitle = plot_subtitle, 
+                             plot_tag = paste(res$n_tag, collapse = '\n'))
+    
+    return(res)
     
   }
   
