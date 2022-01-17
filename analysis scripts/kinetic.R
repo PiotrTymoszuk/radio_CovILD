@@ -86,7 +86,7 @@
               response = outcome, 
               indep_var = 'visit', 
               group_var = 'ID', 
-              invert = TRUE) %>% 
+              invert = FALSE) %>% 
           map2_dfr(., names(.), function(data, sub) mutate(data, severity = sub))) %>% 
     set_names(c('ctss', 'perc_opac', 'perc_hiopac'))
   
@@ -213,7 +213,7 @@
                      response = outcome, 
                      indep_var = 'visit', 
                      group_var = 'ID', 
-                     invert = TRUE) %>% 
+                     invert = FALSE) %>% 
                  map2_dfr(., names(.), function(data, sub) mutate(data, severity = sub))) %>% 
     set_names(kinetic$binary$variables)
   
