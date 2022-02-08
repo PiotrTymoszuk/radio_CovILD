@@ -46,7 +46,7 @@
                              'severe' = 'coral3', 
                              'critical' = 'firebrick3')  
   
-  globals$subset_labels <- c(cohort = 'Cohort', 
+  globals$subset_labels <- c(cohort = 'All participants', 
                              mild = 'Mild COVID-19', 
                              moderate = 'Moderate COVID-19', 
                              severe = 'Severe COVID-19', 

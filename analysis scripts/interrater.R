@@ -27,31 +27,38 @@
   
   insert_msg('Correlations CTSS versus opacity')
   
+  ## analysis table
+  
+  rater$ctss$analysis_tbl <- radio$long %>% 
+    rater_tbl(ctss, perc_opac)
+  
   ## analyses
   
-  rater$ctss$analyses <- radio$long %>% 
-    rater_tbl(ctss, perc_opac) %>% 
-    map(cor_test, 
-        ctss, 
-        perc_opac, 
-        method = 'spearman') %>% 
-    map2_dfr(., names(.), ~mutate(.x, visit = .y)) %>% 
-    mutate(n_complete = radio$long %>% 
-             rater_tbl(ctss, perc_opac) %>% 
-             map(nrow), 
-           plot_lab = paste0('r = ', signif(cor, 2), ', ', format_p(p), ', n = ', n_complete))
+  rater$ctss$analyses <- correlate_variables(!!!rater$ctss$analysis_tbl, 
+                                             variables = c('ctss', 'perc_opac'), 
+                                             type = 'spearman', 
+                                             boot_method = 'bca', 
+                                             pub_styled = TRUE, 
+                                             simplify_p = TRUE) %>% 
+    mutate(eff_size = stri_replace(eff_size, fixed = 'rho', replacement = '\u03C1'),
+           eff_size = stri_replace_all(eff_size, fixed = '0.', replacement = '.'), 
+           significance = stri_replace(significance, fixed = '0.', replacement = '.'), 
+           plot_caption = paste0(eff_size, ', ', significance, ', n = ', n, sep = ', '), 
+           plot_caption = stri_replace(plot_caption, regex = '\\[.*\\]', replacement = ''))
+
 
   ## plots
   
-  rater$ctss$plots <- list(data = radio$long %>% 
-                             rater_tbl(ctss, perc_opac), 
+  rater$ctss$plots <- list(data = rater$ctss$analysis_tbl, 
                            plot_title = globals$visit_labels, 
-                           fill_color = globals$visit_colors, 
-                           plot_subtitle = rater$ctss$analyses$plot_lab) %>% 
-    pmap(correlation_plot, 
-         jitter_w = 0.1) %>% 
+                           point_color = globals$visit_colors, 
+                           plot_subtitle = rater$ctss$analyses$plot_caption) %>% 
+    pmap(plot_correlation, 
+         variables = c('ctss', 'perc_opac'), 
+         type = 'correlation', 
+         cust_theme = globals$common_theme) %>% 
     map(~.x + scale_y_continuous(trans = 'pseudo_log'))
-  
+
 # END -----
   
   insert_tail()

@@ -1,0 +1,88 @@
+```{r fig-consort, fig.width = 7.086614166, fig.height = 7.086614166, fig.cap = 'Study Flow chart.'}
+
+paper_figures$consort$plot
+
+```
+
+__Figure \@ref(fig:fig-consort). Study Flow chart.__
+
+
+
+```{r fig-ct-images, fig.width = 7.086614166, fig.height = 7.086614166, fig.cap = 'Non-contrast axial and sagittal chest CTs corresponding to the CT severity score.'}
+
+paper_figures$ct_images$plot
+
+```
+
+__Figure \@ref(fig:fig-ct-images). Non-contrast axial and sagittal chest CTs corresponding to the CT severity score.__
+
+
+
+```{r fig-abnormality-risk, fig.width = 7.086614166, fig.height = 7.086614166, fig.cap = 'Risk of developing persistent CT abnormalities at the one-year post-COVID-19 follow-up visit.'}
+
+paper_figures$abnormality_risk$plot
+
+```
+
+__Figure \@ref(fig:fig-abnormality-risk). Risk of developing persistent CT abnormalities at the one-year post-COVID-19 follow-up visit.__
+
+
+
+```{r fig-ct-images2, fig.width = 7.086614166, fig.height = 7.086614166, fig.cap = 'Serial non-contrast axial chest CTs of three study participants with prior COVID-19 pneumonia.'}
+
+paper_figures$ct_images2$plot
+
+```
+
+__Figure \@ref(fig:fig-ct-images2). Serial non-contrast axial chest CTs of three study participants with prior COVID-19 pneumonia.__
+
+
+
+```{r fig-ctss-change, fig.width = 7.086614166, fig.height = 8.267716527, fig.cap = 'Change in CT severity score (CTSS) over time.'}
+
+paper_figures$ctss_change$plot
+
+```
+
+__Figure \@ref(fig:fig-ctss-change). Change in CT severity score (CTSS) over time.__
+
+
+
+```{r fig-ctss-severity, fig.width = 7.086614166, fig.height = 7.086614166, fig.cap = 'Predictors of CT abnormality severity at the 1-year follow-up.'}
+
+suppl_figures$ctss_severity$plot
+
+```
+
+__Figure \@ref(fig:fig-ctss-severity). Predictors of CT abnormality severity at the 1-year follow-up.__
+
+
+
+```{r fig-ctss-correlation, fig.width = 7.086614166, fig.height = 7.086614166, fig.cap = 'Correlation of CTSS and lung opacity.'}
+
+suppl_figures$ctss_correlation$plot
+
+```
+
+__Figure \@ref(fig:fig-ctss-correlation). Correlation of CTSS and lung opacity.__
+
+
+
+```{r fig-age-spline, fig.width = 7.086614166, fig.height = 8.267716527, fig.cap = 'Effects of the age variable splining.'}
+
+rev_figures$age_spline$plot
+
+```
+
+__Figure \@ref(fig:fig-age-spline). Effects of the age variable splining.__
+
+
+
+```{r fig-pois-ord-comp, fig.width = 7.086614166, fig.height = 7.086614166, fig.cap = 'Comparison of the Poisson and logistic ordinal regression results.'}
+
+rev_figures$pois_ord_comp$plot
+
+```
+
+__Figure \@ref(fig:fig-pois-ord-comp). Comparison of the Poisson and logistic ordinal regression results.__
+

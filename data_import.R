@@ -7,12 +7,12 @@
   library(foreign)
   library(stringi)
   library(readxl)
+  library(soucer) ## available from https://github.com/PiotrTymoszuk/soucer
 
-  c('./tools/sys_tools.R', 
-    './tools/project_globals.R', 
+  c('./tools/project_globals.R', 
     './tools/project_tools.R') %>% 
-    walk(source)
-  
+    source_all(message = TRUE, crash = TRUE)
+      
   insert_head()
   
 # container list ----
@@ -68,7 +68,7 @@
   
   radio$clear <- radio$clear %>% 
     mutate(sex = car::recode(sex, "'m' = 'male'; 'w' = 'female'"), 
-           sex = factor(sex, c('male', 'female')), 
+           sex = factor(sex, c('female', 'male')), 
            age = date_fup4 - date_birth - 1, 
            age = round(as.numeric(age, format = 'days')/365.25), 
            age_60 = cut(age, c(-Inf, 60, Inf), c('up to 60', '>60')), 
@@ -127,7 +127,7 @@
     if(is.character(radio$long[[i]])) {
       
       radio$long <- radio$long %>% 
-        mutate(!!sym(i) := factor(.data[[i]]))
+        mutate(!!i := factor(.data[[i]]))
       
     }
     

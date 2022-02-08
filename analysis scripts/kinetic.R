@@ -1,7 +1,5 @@
-# This script 'models' kinetic of the CT score in the entire cohort and severity groups
+# This script 'models' changes of the CT score and percent opacity in time in the entire cohort and severity groups
 # by Friedman test.
-# Risk of incomplete resolution of any, moderate-to-severe, severe and particular type abnormalities
-# is estimated by mixed-effect logistic modeling. Only the participants with the complete longitudinal CT scan sets are analyzed
 
   insert_head()
   
@@ -11,220 +9,99 @@
   
 # analysis table ----
   
+  insert_msg('Analysis table')
+  
   kinetic$analysis_tbl <- radio$long %>% 
     filter(ID %in% radio$complete_long_ids)
   
   kinetic$analysis_tbl <- kinetic$analysis_tbl %>% 
-    dlply(.(severity)) %>% 
+    dlply(.(severity), as_tibble) %>% 
     c(list(cohort = kinetic$analysis_tbl), .)
   
-# CTSS, opacity and hig opacity percentage kinetics -----
+  kinetic$analysis_tbl <- kinetic$analysis_tbl %>% 
+    map(select, ID, severity, visit, time_months, ctss, perc_opac)
   
-  insert_msg('CTSS kinetic')
+# Friedman test -----
   
-  ## test
-  
-  kinetic$numeric$analysis <- list(ctss = ctss ~ visit|ID, 
-                                   perc_opac = perc_opac ~ visit|ID, 
-                                   perc_hiopac = perc_hiopac ~ visit|ID) %>% 
-    map(function(outcome) kinetic$analysis_tbl %>% 
-          map(friedman_test, 
-                  formula = outcome) %>% 
-          map2_dfr(., names(.), ~mutate(.x, subset = .y)))
-
-  ## summary
-  
-  kinetic$numeric$summary <- kinetic$numeric$analysis %>% 
-    map(mutate, 
-        p_value = p, 
-        p_adj = p.adjust(p_value, 'BH'), 
-        plot_caption = paste0('\u03C7 = ', signif(statistic, 2), 
-                              ', df = 3, ', format_p(p_value, 2)))
-  
-  ## effect size determined by Kendall W, updating the plot_caption
+  insert_msg('Friedman test')
   
   plan('multisession')
   
-  kinetic$numeric$effsize <- list(ctss = ctss ~ visit|ID, 
-                                  perc_opac = perc_opac ~ visit|ID, 
-                                  perc_hiopac = perc_hiopac ~ visit|ID) %>% 
-    map(function(outcome) kinetic$analysis_tbl %>% 
-          future_map(friedman_effsize, 
-                     formula = outcome, 
-                     ci = TRUE, 
-                     ci.type = 'norm', 
-                     .options = furrr_options(seed = TRUE)) %>% 
-          map2_dfr(., names(.), ~mutate(.x, subset = .y)))
+  kinetic$friedman_test <- kinetic$analysis_tbl %>% 
+    future_map(compare_variables, 
+               variables = c('ctss', 'perc_opac'), 
+               split_factor = 'visit', 
+               what = 'test', 
+               types = 'friedman_test', 
+               ci = TRUE, 
+               pub_styled = TRUE, 
+               simplify_p = TRUE, 
+               boot_method = 'bca', 
+               .options = furrr_options(seed = TRUE)) %>% 
+    map2_dfr(., names(.), ~mutate(.x, subset = .y)) %>%
+    mutate(signficance = stri_replace(significance, fixed = '0.', replacement = '.'), 
+           eff_size = stri_replace_all(eff_size, fixed = '0.', replacement = '.'), 
+           plot_caption = paste(signficance, eff_size, sep = ', '), 
+           plot_caption = stri_replace(plot_caption, regex = '\\[.*\\]', replacement = ''))
   
-  kinetic$numeric$summary <- map2(kinetic$numeric$summary, 
-                                  kinetic$numeric$effsize, 
-                                  ~mutate(.x, 
-                                          w = paste0(signif(.y$effsize, 2), 
-                                                     ' [', signif(.y$conf.low, 2), 
-                                                     ' - ', signif(.y$conf.high, 2), ']'), 
-                                          plot_caption = paste(plot_caption, w, sep = '\nW = ')))
-
   plan('sequential')
+
+# Post-hoc testing: Wilcoxon test with the r statistic as effect size -----
+  # No multiple testing adjustment, as requested by the statistical reviewer
   
-  ## post-hoc Wilcoxon tests
+  insert_msg('Post-hoc testing')
   
-  kinetic$numeric$post_hoc <- list(ctss = ctss ~ visit, 
-                                   perc_opac = perc_opac ~ visit, 
-                                   perc_hiopac = perc_hiopac ~ visit) %>% 
-    map(function(outcome) kinetic$analysis_tbl %>% 
-          future_map(compare_means, 
-                     formula = outcome,  
-                     paired = TRUE, 
-                     method = 'wilcox.test', 
-                     p.adjust.method = 'holm'))
+  kinetic$post_hoc_test <- kinetic$analysis_tbl %>% 
+    map(post_eff_size) %>% 
+    map(mutate, 
+        significance = stri_replace_all(significance, regex = 'ns|\\s|\\(|\\)', replacement = ''))
+
+# Plotting of the time change plots ------
   
-  ## post-hoc effect size
+  insert_msg('Time change plots')
+
+  kinetic$plots_ctss <- list(data = kinetic$analysis_tbl, 
+                             plot_title = globals$subset_labels, 
+                             plot_subtitle = kinetic$friedman_test %>% 
+                               filter(variable == 'ctss') %>% 
+                               .$plot_caption, 
+                             fill_color = globals$subset_colors) %>% 
+    pmap(plot_ctss, 
+         plot_var = 'ctss', 
+         y_lab = 'CTSS') %>% 
+    map2(., kinetic$post_hoc_test, 
+         add_ctss_post_p, 
+         variable = 'ctss') %>% 
+    map(~.x + expand_limits(y = 25))
   
-  kinetic$numeric$post_hoc_eff_size <- c('ctss', 'perc_opac', 'perc_hiopac') %>% 
-    map(function(outcome) kinetic$analysis_tbl %>% 
-          map(compare_effects, 
-              response = outcome, 
-              indep_var = 'visit', 
-              group_var = 'ID', 
-              invert = FALSE) %>% 
-          map2_dfr(., names(.), function(data, sub) mutate(data, severity = sub))) %>% 
-    set_names(c('ctss', 'perc_opac', 'perc_hiopac'))
-  
-  ## score/opacity plots
-  
-  kinetic$numeric$plots_ctss <- list(data = kinetic$analysis_tbl, 
-                                     plot_title = globals$subset_labels, 
-                                     plot_subtitle = kinetic$numeric$summary$ctss$plot_caption, 
-                                     fill_color = globals$subset_colors) %>% 
-    pmap(plot_ctss) %>% 
-    map2(., kinetic$numeric$post_hoc$ctss, 
-         add_ctss_post_p)
-  
-  kinetic$numeric$plots_opacity <- list(data = kinetic$analysis_tbl, 
-                                        plot_title = globals$subset_labels, 
-                                        plot_subtitle = kinetic$numeric$summary$perc_opac$plot_caption, 
-                                        fill_color = globals$subset_colors) %>% 
+  kinetic$plots_opacity <- list(data = kinetic$analysis_tbl, 
+                                plot_title = globals$subset_labels, 
+                                plot_subtitle = kinetic$friedman_test %>% 
+                                  filter(variable == 'perc_opac') %>% 
+                                  .$plot_caption, 
+                                fill_color = globals$subset_colors) %>% 
     pmap(plot_ctss, 
          plot_var = 'perc_opac', 
          y_lab = 'Opacity, % lung') %>% 
-    map2(., kinetic$numeric$post_hoc$perc_opac, 
+    map2(., kinetic$post_hoc_test, 
          add_ctss_post_p, 
+         variable = 'perc_opac', 
          line_y = 34, 
          voffset = 3, 
          text_offset = 0.7)
-  
-  kinetic$numeric$plots_hiopacity <- list(data = kinetic$analysis_tbl, 
-                                          plot_title = globals$subset_labels, 
-                                          plot_subtitle = kinetic$numeric$summary$perc_hiopac$plot_caption, 
-                                          fill_color = globals$subset_colors) %>% 
-    pmap(plot_ctss, 
-         plot_var = 'perc_hiopac', 
-         y_lab = 'High opacity, % lung') %>% 
-    map2(., kinetic$numeric$post_hoc$perc_hiopac, 
-         add_ctss_post_p, 
-         line_y = 2.1, 
-         voffset = 0.4, 
-         text_offset = 0.05)
-  
-  ## effect size plots with the tau statistic
-  
-  kinetic$numeric$eff_plots <- list(eff_size_data = kinetic$numeric$post_hoc_eff_size, 
-                                    plot_title = c('CTSS', 'Opacity', 'High opacity')) %>% 
-    pmap(plot_effects, 
-         eff_var = 'tau_b',
-         ci = FALSE, 
-         y_lab = expression('Recovery effect size, '*tau))
 
-# Binary CT features -----
+# effect size (r value) plots -------
   
-  insert_msg('Modeling binary CT features')
+  insert_msg('Plotting the effect sizes')
   
-  kinetic$binary$variables <- c('ctss_any', 
-                                'ctss_mod_severe', 
-                                'ctss_severe', 
-                                'ggo', 
-                                'retic', 
-                                'consol', 
-                                'bronch', 
-                                'opacity', 
-                                'hiopacity')
-  
-  kinetic$binary$formulas <- paste(kinetic$binary$variables, '~ time_months + (1|ID)') %>% 
-    map(as.formula) %>% 
-    set_names(kinetic$binary$variables)
-  
-  kinetic$binary$null_formulas <- paste(kinetic$binary$variables, '~ (1|ID)') %>% 
-    map(as.formula) %>% 
-    set_names(kinetic$binary$variables)
-  
-  ## full and null models
-  
-  kinetic$binary$full_models <- kinetic$analysis_tbl %>% 
-    map(function(subset) kinetic$binary$formulas %>% 
-          map(safely(glmer), data = subset, family = 'binomial') %>% 
-          map(~.x$result)) %>% 
-    unlist(recursive = FALSE)
-  
-  kinetic$binary$null_models <- kinetic$analysis_tbl %>% 
-    map(function(subset) kinetic$binary$null_formulas %>% 
-          map(safely(glmer), data = subset, family = 'binomial') %>% 
-          map(~.x$result)) %>% 
-    unlist(recursive = FALSE)
-  
-  ## LRT
-  
-  kinetic$binary$lrt <- map2(kinetic$binary$full_models, 
-                             kinetic$binary$null_models, 
-                             safely(anova)) %>% 
-    map(~.x$result)
-  
-  kinetic$binary$lrt_summary <- kinetic$binary$lrt %>% 
-    map(unclass) %>% 
-    map(~safely(tibble)(chisq = .x[['Chisq']][2], 
-                        df = .x[['Df']][2], 
-                        p_value = .x[['Pr(>Chisq)']][2])) %>% 
-    map(~safely(mutate)(.x$result, plot_caption = paste0('LRT: \u03C7 = ', signif(chisq, 2), 
-                                                          ', df = 1, ', format_p(p_value, 2)))) %>% 
-    map(~.x$result)
-  
-  kinetic$binary$lrt_captions <- kinetic$binary$lrt_summary %>% 
-    map(~.x$plot_caption)
-  
-  ## plotting
-  
-  kinetic$binary$plots <- list(dataset = kinetic$analysis_tbl, 
-                               prefix = globals$subset_labels, 
-                               fill_color = globals$subset_colors) %>% 
-    pmap(function(dataset, prefix, fill_color) kinetic$binary$variables %>% 
-           map(~plot_feature_kinetic(data = dataset, 
-                                     plot_var = .x, 
-                                     plot_title = paste(prefix, translate_var(.x), sep = ': '), 
-                                     fill_color = fill_color)) %>% 
-           set_names(kinetic$binary$variables)) %>% 
-    unlist(recursive = FALSE) %>% 
-    map(~.x + scale_y_continuous(limits = c(0, 100))) %>% 
-    map2(., kinetic$binary$lrt_captions, ~.x + labs(subtitle = .y))
-  
-  ## post-hoc effect size
-
-  kinetic$binary$post_hoc_eff_size <- kinetic$binary$variables %>% 
-    map(function(outcome) kinetic$analysis_tbl %>% 
-                 map(compare_effects, 
-                     response = outcome, 
-                     indep_var = 'visit', 
-                     group_var = 'ID', 
-                     invert = FALSE) %>% 
-                 map2_dfr(., names(.), function(data, sub) mutate(data, severity = sub))) %>% 
-    set_names(kinetic$binary$variables)
-  
-  ## effect plots with the tau
-  
-  kinetic$binary$eff_plots <- list(eff_size_data = kinetic$binary$post_hoc_eff_size, 
-                                    plot_title = translate_var(kinetic$binary$variables)) %>% 
+  kinetic$eff_size_plots <- list(variable = c('ctss' = 'ctss', 
+                                              'perc_opac' = 'perc_opac'), 
+                                 plot_title = c('CTSS', 'Lung opactity')) %>% 
     pmap(plot_effects, 
-         eff_var = 'tau_b', 
-         ci = FALSE, 
-         y_lab = expression('Recovery effect size, '*tau))
+         data = kinetic$post_hoc_test %>% 
+           map2_dfr(., names(.), ~mutate(.x, subset = .y)), 
+         plot_subtitle = 'Effect size') %>% 
+    map(~.x + scale_y_continuous(limits = c(0, 1)))
 
 # END ----
   

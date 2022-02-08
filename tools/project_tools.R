@@ -238,264 +238,91 @@
     
   }
   
-# table formatting ------
-  
-  add_stat_info <- function(data_frame, signif_var = c('p_value', 'p_adj')) {
-    
-    ## adds information on tests and adjusts p values
-    
-    signif_var <- match.arg(signif_var[1], c('p_value', 'p_adj'))
-    
-    data_frame %>% 
-      mutate(p_adj = p.adjust(p_value, 'BH'), 
-             significance = format_p(.data[[signif_var]]), 
-             label = translate_var(variable), 
-             test = ifelse(class == 'factor', 'Chi squared', 'one-way ANOVA')) %>% 
-      map_dfc(function(x) if(is.character(x)) stri_replace(x, regex = '^.*\\nyes:\\s{1}', replacement = '') else x)
-    
-  }
-  
 # kinetic modeling and plotting -----
   
-  compare_effects <- function(data, 
-                              response = 'ctss', 
-                              indep_var = 'visit', 
-                              group_var = 'ID',
-                              invert = FALSE, 
-                              parallel = FALSE, 
-                              ci.type = 'norm') {
+  post_eff_size <- function(data) {
     
-    ## pairwise effect size
+    ## perforems post hoc testing with Wilcoxon test
+    ## and r effect size. Consecutive visits are compared
     
-    start_time <- Sys.time()
-    on.exit(message(paste('Elapsed:', Sys.time() - start_time)))
+    data <- data %>% 
+      dlply(.(visit))
     
-    pairs <- combn(unique(data[[indep_var]]), m = 2, simplify = FALSE)
+    test_lst <- list(fup1_fup2 = data[c('fup1', 'fup2')], 
+                     fup2_fup3 = data[c('fup2', 'fup3')], 
+                     fup3_fup4 = data[c('fup3', 'fup4')])
     
-    group_tbl <- pairs %>% 
-      map_dfr(~tibble(.y = response, 
-                      group1 = .x[1], 
-                      group2 = .x[2]))
+    p_values <- test_lst %>% 
+      map(~compare_variables(!!!.x, 
+                             variables = c('ctss', 'perc_opac'), 
+                             what = 'eff_size', 
+                             types = 'paired_wilcoxon_r', 
+                             ci = FALSE, 
+                             pub_styled = TRUE, 
+                             simplify_p = TRUE)) %>% 
+      map2_dfr(., names(.), ~mutate(.x, comparison = .y)) %>% 
+      mutate(significance = stri_replace(significance, fixed = '0.', replacement = '.'))
     
-    mod_tbl <- pairs %>% 
-      map(~filter(data, .data[[indep_var]] %in% .x)) %>% 
-      map(arrange, .data[[group_var]]) %>% 
-      map(mutate, 
-          x_fct = droplevels(.data[[indep_var]]))
+    eff_sizes <- test_lst %>% 
+      map(~compare_variables(!!!.x, 
+                             variables = c('ctss', 'perc_opac'), 
+                             what = 'eff_size', 
+                             types = 'paired_wilcoxon_r', 
+                             ci = FALSE, 
+                             pub_styled = FALSE)) %>% 
+      map2_dfr(., names(.), ~mutate(.x, comparison = .y)) %>% 
+      select(comparison, variable, estimate_name, estimate)
     
-    N <- mod_tbl %>% 
-      map(filter, !duplicated(.data[[group_var]])) %>% 
-      map_dbl(nrow)
-    
-    ## pairwise effect size calculation
-  
-    my_kendall <- function(x, y) {
-      
-      kendall_res <- try(KendallTauB(x, y, conf.level = 0.95), silent = TRUE)
-      
-      if(any(class(kendall_res) == 'try-error')) {
-        
-        warning('The factor value is invariant!', call. = FALSE)
-        
-        kendall_res <- c(tau_b = 0, lwr.ci = NA, upr.ci = NA)
-        
-      }
-      
-      return(kendall_res)
-      
-    }
-    
-    my_freeman <- function(tbl) {
-      
-      freeman <- try(freemanTheta(tbl, 
-                                  ci = TRUE, 
-                                  type = ci.type, 
-                                  R = 1000), 
-                     silent = TRUE)
-      
-      if(any(class(freeman) == 'try-error')) {
-        
-        warning('The factor value is invariant!', call. = FALSE)
-        
-        freeman <- tibble(Freeman.theta = 0, 
-                          lower.ci = NA, 
-                          upper.ci = NA)  
-      }
-      
-      return(freeman)
-      
-    }
-    
-    kendall_tau <- mod_tbl %>% 
-      map(~my_kendall(x = as.numeric(.x[[response]]), 
-                      y = as.numeric(.x[[indep_var]]))) %>% 
-            map_dfr(~tibble(tau_b = .x[1], 
-                            tau_lower_ci = .x[2], 
-                            tau_upper_ci = .x[3]))
-    
-    if(invert) {
-      
-      kendall_tau <- kendall_tau %>% 
-        mutate(tau_b = -tau_b, 
-               trans_lower = tau_lower_ci, 
-               trans_upper = tau_upper_ci, 
-               tau_lower_ci = -trans_upper, 
-               tau_upper_ci = -trans_lower) %>% 
-        select( - trans_lower, - trans_upper)
-      
-    }
-    
-    if(is.numeric(data[[response]])) {
-      
-      wilcox_z <- mod_tbl %>% 
-        map(~dlply(.x, indep_var) %>% 
-              map(~.x[c(response, group_var)]) %>% 
-              reduce(left_join, by = group_var) %>% 
-              select(starts_with(response))) %>% 
-        map_dbl(~wilcoxonZ(.x[[2]], .x[[1]], paired = TRUE)) %>% 
-        tibble(z = ., 
-               n = N, 
-               r = ./sqrt(N))
-      
-      if(invert) {
-        
-        wilcox_z <- wilcox_z %>% 
-          mutate(z = -z, 
-                 r = -r)
-        
-      }
-      
-      ## output
-      
-      list(group_tbl, 
-           kendall_tau, 
-           wilcox_z) %>% 
-        reduce(cbind) %>% 
-        as_tibble
-      
-    } else {
-      
-      if(parallel) {
-        
-        plan('multisession')
-        
-        theta <- mod_tbl %>% 
-          map(~table(.x[[response]], .x[['x_fct']])) %>% 
-          future_map_dfr(my_freeman, 
-                         .options = furrr_options(seed = TRUE)) %>% 
-          set_names(c('theta', 'theta_lower_ci', 'theta_upper_ci'))
-        
-        plan('sequential')
-        
-      } else {
-        
-        theta <- mod_tbl %>% 
-          map(~table(.x[[response]], .x[['x_fct']])) %>% 
-          map_dfr(my_freeman) %>% 
-          set_names(c('theta', 'theta_lower_ci', 'theta_upper_ci'))
-        
-      }
-
-      ## output
-      
-      list(group_tbl, 
-           kendall_tau, 
-           theta) %>% 
-        reduce(cbind) %>% 
-        as_tibble
-  
-    }
+    left_join(p_values, eff_sizes, by = c('comparison', 'variable'))
     
   }
-  
-  plot_effects <- function(eff_size_data, 
-                           eff_var = c('r', 'tau_b', 'theta'), 
+
+  plot_effects <- function(data, 
+                           variable = 'ctss', 
                            plot_title = NULL, 
                            plot_subtitle = NULL, 
-                           plot_tag = NULL, 
                            x_lab = 'Months post COVID-19', 
-                           y_lab = 'Recovery effect, R', 
+                           y_lab = 'Recovery effect, r', 
                            ci = TRUE, 
                            dodge_w = 0) {
     
     ## plots effect size at the consecutive visits
     
-    eff_var <- match.arg(eff_var[1], c('r', 'tau_b', 'theta'))
-    
-    plotting_tbl <- eff_size_data %>% 
-      mutate(comparison = paste(group1, group2, sep = '-'), 
-             severity = factor(severity, names(globals$subset_colors))) %>% 
-      filter(comparison %in% c('fup1-fup2', 'fup2-fup3', 'fup3-fup4')) %>% 
-      mutate(time = car::recode(comparison, "'fup1-fup2' = '3 vs 2'; 'fup2-fup3' = '6 vs 3'; 'fup3-fup4' = '12 vs 6'"), 
+    plotting_tbl <- data %>% 
+      filter(variable == !!variable) %>% 
+      mutate(subset = factor(subset, names(globals$subset_colors)), 
+             time = car::recode(comparison, "'fup1_fup2' = '3 vs 2'; 'fup2_fup3' = '6 vs 3'; 'fup3_fup4' = '12 vs 6'"), 
              time = factor(time, c('3 vs 2', '6 vs 3', '12 vs 6')))
     
-    if(ci) {
-      
-      base_plot <- switch(eff_var, 
-                          r = ggplot(plotting_tbl, 
-                                     aes(x = time, 
-                                         y = r, 
-                                         color = severity) + 
-                                       geom_hline(yintercept = 0, 
-                                                  linetype = 'dashed')), 
-                          tau_b = ggplot(plotting_tbl, 
-                                         aes(x = time, 
-                                             y = tau_b, 
-                                             color = severity)) + 
-                            geom_hline(yintercept = 0, 
-                                       linetype = 'dashed') + 
-                            geom_errorbar(aes(ymin = tau_lower_ci, 
-                                              ymax = tau_upper_ci), 
-                                          width = 0, 
-                                          position = position_dodge(dodge_w)), 
-                          theta = ggplot(plotting_tbl, 
-                                         aes(x = time, 
-                                             y = theta, 
-                                             color = severity)) + 
-                            geom_hline(yintercept = 0, 
-                                       linetype = 'dashed') + 
-                            geom_errorbar(aes(ymin = theta_lower_ci, 
-                                              ymax = theta_upper_ci), 
-                                          width = 0, 
-                                          position = position_dodge(dodge_w)))
-      
-    } else {
-      
-      base_plot <- switch(eff_var, 
-                          r = ggplot(plotting_tbl, 
-                                     aes(x = time, 
-                                         y = r, 
-                                         color = severity)), 
-                          tau_b = ggplot(plotting_tbl, 
-                                         aes(x = time, 
-                                             y = tau_b, 
-                                             color = severity)), 
-                          theta = ggplot(plotting_tbl, 
-                                         aes(x = time, 
-                                             y = theta, 
-                                             color = severity)))
-      base_plot <- base_plot + 
-        geom_hline(yintercept = 0, 
-                   linetype = 'dashed')
-      
-    }
+    n_numbers <- plotting_tbl %>% 
+      dlply(.(subset), function(x) x$n[1]/2)
     
-    base_plot + 
-      geom_line(aes(group = severity), 
-                position = position_dodge(dodge_w)) + 
+    plot_tag <- map2_chr(globals$subset_labels, 
+                         n_numbers, 
+                         paste, sep = ': n = ') %>% 
+      paste(collapse = '\n')
+    
+    plotting_tbl %>% 
+      ggplot(aes(x = time, 
+                 y = estimate, 
+                 color = subset, 
+                 group = subset)) + 
+      geom_line() + 
       geom_point(shape = 16, 
-                 size = 2, 
-                 position = position_dodge(dodge_w)) + 
+                 size = 2) + 
       scale_color_manual(values = globals$subset_colors, 
                          labels = globals$subset_labels, 
                          name = '') + 
-      globals$common_theme +
+      globals$common_theme + 
+      theme(plot.tag.position = 'right') + 
       labs(title = plot_title, 
            subtitle = plot_subtitle, 
            tag = plot_tag, 
            x = x_lab, 
-           y = y_lab)
-    
+           y = y_lab) + 
+      facet_grid(.~subset, labeller = as_labeller(globals$subset_labels)) + 
+      guides(color = FALSE)
+
   }
   
   plot_ctss <- function(data, 
@@ -512,9 +339,19 @@
     
     med_tbl <- data %>% 
       dlply(.(visit)) %>% 
-      map_dfr(analyze_feature, 
-              variable = plot_var) %>% 
+      map(explore, 
+          variables = plot_var) %>% 
+      map(~.x[[1]][['statistic']]) %>% 
+      map2_dfr(., names(.), 
+               ~tibble(visit = .y, 
+                       median = .x[['value']][3], 
+                       perc_25 = .x[['value']][4],
+                       perc_75 = .x[['value']][5])) %>% 
       mutate(time_months = c(2, 3, 6, 12))
+    
+    n_numbers <- data %>% 
+      filter(visit == 'fup1') %>% 
+      nrow
     
     ## plot
     
@@ -523,8 +360,8 @@
                  y = .data[[plot_var]])) + 
       geom_ribbon(data = med_tbl, 
                   aes(y = median, 
-                      ymin = perc25, 
-                      ymax = perc75), 
+                      ymin = perc_25, 
+                      ymax = perc_75), 
                   fill = fill_color, 
                   alpha = 0.25) + 
       geom_line(aes(group = ID), 
@@ -537,61 +374,15 @@
       globals$common_theme + 
       labs(title = plot_title, 
            subtitle = plot_subtitle, 
-           tag = paste('\nn =', med_tbl$n_complete[1]), 
+           tag = paste('\nn =', n_numbers), 
            x = 'Months post COVID-19', 
            y = y_lab)
     
   }
-  
-  plot_feature_kinetic <- function(data, 
-                                   plot_var = 'ggo', 
-                                   plot_title = NULL, 
-                                   plot_subtitle = NULL, 
-                                   fill_color = 'firebrick', 
-                                   y_lab = '% subset') {
-    
-    ## frequency plot
-    
-    ## percent table
-    
-    med_tbl <- data %>% 
-      dlply(.(visit)) %>% 
-      map(count, .data[[plot_var]], .drop = FALSE) %>% 
-      map(mutate, 
-          total_n = sum(n), 
-          percent = 100 * n/sum(n)) %>% 
-      map2_dfr(., names(.), ~mutate(.x, visit = .y)) %>% 
-      filter(.data[[plot_var]] == 'yes') %>% 
-      mutate(time_months = car::recode(visit, "'fup1' = 2; 'fup2' = 3; 'fup3' = 6; 'fup4' = 12", as.factor = FALSE), 
-             time_months = as.numeric(time_months), 
-             perc_lab = signif(percent, 2))
-    
-    ## plot
-    
-    med_tbl %>% 
-      ggplot(aes(x = time_months, 
-                 y = percent)) + 
-      geom_point(shape = 16, 
-                 color = fill_color) + 
-      geom_line(color = fill_color) + 
-      geom_text(aes(label = perc_lab), 
-                size = 2.75, 
-                hjust = -0.2, 
-                vjust = -0.3, 
-                color = fill_color) + 
-      scale_x_continuous(breaks = c(2, 3, 6, 12)) + 
-      globals$common_theme + 
-      labs(title = plot_title, 
-           subtitle = plot_subtitle, 
-           tag = paste('\nn =', med_tbl$total_n[1]), 
-           x = 'Months post COVID-19', 
-           y = y_lab)
-    
-    
-  }
-  
+
   add_ctss_post_p <- function(plot, 
                               post_hoc_results, 
+                              variable = 'ctss', 
                               p_var = 'p', 
                               hoffset = 0.15, 
                               line_y = 21, 
@@ -600,22 +391,18 @@
     
     ## adds the results of sequential post-hoc testing to the ctss plot
     
-    cmm_rocode <- "'fup1' = 2; 'fup2' = 3; 'fup3' = 6; 'fup4' = 12"
-    
     y <- c(line_y, line_y - voffset, line_y - 2*voffset)
     
     post_hoc_results <- post_hoc_results %>% 
-      mutate(comparison = paste(group1, group2, sep = ':')) %>% 
-      filter(comparison %in% c('fup1:fup2', 'fup2:fup3', 'fup3:fup4')) %>% 
-      mutate(x0 = car::recode(group1, cmm_rocode), 
-             x1 = car::recode(group2, cmm_rocode), 
+      filter(variable == !!variable) %>% 
+      mutate(x0 = c(2, 3, 6), 
+             x1 = c(3, 6, 12), 
              y0 = y, 
              y1 = y, 
              x_text = (x1 + x0)/2, 
              x0 = x0 + hoffset, 
-             x1 = x1 - hoffset, 
-             p_lab = format_p(.data[[p_var]], 2))
-    
+             x1 = x1 - hoffset)
+
     plot + 
       scale_y_continuous(limits = NULL) + 
       geom_segment(data = post_hoc_results, 
@@ -626,57 +413,58 @@
       geom_text(data = post_hoc_results, 
                 aes(x = x_text, 
                     y = y1 + text_offset, 
-                    label = p_lab), 
+                    label = significance), 
                 size = 2.75, 
                 hjust = 0.2, 
                 vjust = 0)
     
   }
   
-# risk modeling -----
+# risk and score modeling -----
   
-  get_baseline <- function(data, variable) {
+  my_plot_forest <- function(summary_tbl, 
+                             hide_baseline_est = TRUE, 
+                             plot_title = NULL, 
+                             plot_subtitle = NULL, 
+                             plot_tag = NULL, 
+                             x_lab = 'OR', 
+                             x_trans = 'log2', 
+                             hide_ns = FALSE) {
     
-    data <- data %>% 
-      mutate(!!variable := droplevels(.data[[variable]]))
+    if(hide_ns) summary_tbl <- filter(summary_tbl, p_value < 0.05)
     
-    count(data, .data[[variable]]) %>% 
-      set_names(c('level_fct', 'n_level')) %>% 
-      filter(!is.na(level_fct)) %>% 
-      mutate(level = c('baseline', levels(data[[variable]])[-1]), 
-             variable = !!variable, 
-             plot_order = as.numeric(level_fct))
-    
-  }
-  
-  plot_forest <- function(summary_tbl, 
-                          hide_baseline_est = TRUE, 
-                          plot_title = NULL, 
-                          plot_subtitle = NULL, 
-                          plot_tag = NULL, 
-                          x_lab = 'OR', 
-                          x_trans = 'log2') {
+    var_dict <- c(age_60 = 'Age\nyears', 
+                  sex = 'Sex', 
+                  bmi_class = 'BMI', 
+                  smoking = 'Smoking\nhistory', 
+                  pky_class = 'Smoking\npack-years', 
+                  severity = 'COVID-19\nseverity')
     
     summary_tbl <- summary_tbl %>% 
-      mutate(var_lab = translate_var(variable), 
-             var_lab = ifelse(variable == 'baseline', 'Ref.', var_lab),
-             var_lab = factor(var_lab, levels = unique(c('Ref.', unique(var_lab)))), 
-             xax_lab = ifelse(level != 'baseline', 
-                              paste0(level_fct, ', n = ', n_level), 
-                              paste0(level_fct, ' (ref.), n = ', n_level)), 
-             xax_lab = ifelse(variable == 'baseline', 'reference', xax_lab), 
+      mutate(var_lab = ifelse(variable == 'baseline', 'Ref.', var_dict[variable]), 
+             xax_lab = ifelse(is.na(var_lab), 
+                              'reference', 
+                              ifelse(variable == 'baseline', 
+                                     'reference', 
+                                     ifelse(parameter == '(Intercept)' | stri_detect(parameter, fixed = '|'), 
+                                            paste0(level, ' (ref.), n = ', n), 
+                                            paste0(level, ', n = ', n)))), 
+             var_lab = ifelse(is.na(var_lab), 'Ref.', var_lab), 
+             var_lab = factor(var_lab, levels = c('Ref.', var_dict)), 
              est_lab = paste0(signif(estimate, 2), ' [', signif(lower_ci, 2), ' - ', signif(upper_ci, 2), ']'), 
              significant = ifelse(p_value < 0.05, 'yes', 'no'), 
              regulation = ifelse(significant == 'no', 'ns', 
-                                 ifelse(estimate > 1, 'positive', 'negative')))
+                                 ifelse(estimate > 1, 'positive', 'negative')), 
+             plot_order = ifelse(stri_detect(parameter, fixed = '|'), 0, plot_order))
     
     if(hide_baseline_est) {
       
       summary_tbl <- summary_tbl %>% 
-        mutate(estimate = ifelse(level == 'baseline', 1, estimate), 
-               lower_ci = ifelse(level == 'baseline', 1, lower_ci), 
-               upper_ci = ifelse(level == 'baseline', 1, upper_ci), 
-               est_lab = ifelse(level == 'baseline', 1, est_lab))
+        mutate(estimate = ifelse(parameter == '(Intercept)' | stri_detect(parameter, fixed = '|'), 1, estimate), 
+               lower_ci = ifelse(parameter == '(Intercept)' | stri_detect(parameter, fixed = '|'), 1, lower_ci), 
+               upper_ci = ifelse(parameter == '(Intercept)' | stri_detect(parameter, fixed = '|'), 1, upper_ci), 
+               est_lab = ifelse(parameter == '(Intercept)' | stri_detect(parameter, fixed = '|'), 1, est_lab), 
+               regulation = ifelse(parameter == '(Intercept)' | stri_detect(parameter, fixed = '|'), 'ns', regulation))
       
     }
     
@@ -686,7 +474,8 @@
                  color = regulation)) + 
       facet_grid(var_lab ~ ., 
                  scales = 'free', 
-                 space = 'free') + 
+                 space = 'free', 
+                 switch = 'y') + 
       geom_vline(xintercept = 1, 
                  linetype = 'dashed') + 
       geom_errorbarh(aes(xmin = lower_ci, 
@@ -702,7 +491,8 @@
                                     'ns' = 'gray50', 
                                     'positive' = 'coral3')) + 
       globals$common_theme + 
-      theme(axis.title.y = element_blank()) + 
+      theme(axis.title.y = element_blank(), 
+            strip.placement = 'outside') + 
       labs(title = plot_title, 
            subtitle = plot_subtitle,
            tag = plot_tag, 
@@ -712,7 +502,6 @@
     
     
   }
-  
 
 # inter-rater -----
   
@@ -774,7 +563,9 @@
     
   }
   
-  plot_roc <- function(data, d_var, m_var, 
+  plot_roc <- function(data, 
+                       d_var, 
+                       m_var, 
                        roc_stats,
                        plot_title = NULL, 
                        plot_subtitle = NULL, 
@@ -902,61 +693,48 @@
     return(res)
     
   }
-  
-  correlation_plot <- function(data, 
-                               x_var = 'ctss', 
-                               y_var = 'perc_opac', 
-                               x_lab = 'CTSS', 
-                               y_lab = 'Opacity, % lung', 
-                               plot_title = NULL, 
-                               plot_subtitle = NULL, 
-                               plot_tag = NULL, 
-                               fill_color = 'steelblue', 
-                               jitter_w = 0, 
-                               jitter_h = 0, 
-                               point_alpha = 0.75) {
-    
-    data %>% 
-      ggplot(aes(x = .data[[x_var]], 
-                 y = .data[[y_var]])) + 
-      geom_point(shape = 21, 
-                 size = 2, 
-                 fill = fill_color, 
-                 alpha = point_alpha, 
-                 position = position_jitter(width = jitter_w, 
-                                            height = jitter_h)) + 
-      geom_smooth(method = 'lm') + 
-      globals$common_theme + 
-      labs(title = plot_title, 
-           subtitle = plot_subtitle, 
-           tag = plot_tag, 
-           x = x_lab, 
-           y = y_lab)
-    
-  }
-  
-# number formatting -----
-  
-  short_number <- function(vec, signif_digits = 2) {
-    
-    stopifnot(is.numeric(vec))
-    
-    signif(vec, signif_digits) %>% 
-      as.character %>% 
-      stri_replace(regex = '^0.', replacement = '.')
-    
-  }
 
-  format_p <- function(vec, signif_digits = 2) {
+# GAM modeling -----
+  
+  plot_gam_predictions <- function(lm_analysis_object) {
     
-    stopifnot(is.numeric(vec))
+    preds <- resid(lm_analysis_object, type.predict = 'response')
     
-    ifelse(vec < 0.001, 
-           'p < .001', 
-           ifelse(vec >= 0.05, 
-                  paste0('ns (p = ', short_number(vec, signif_digits), ')'), 
-                  paste('p =', short_number(vec, signif_digits))))
+    mod_resp <- names(preds)[1]
+    
+    mod_vars <- names(preds)[!stri_detect(names(preds), fixed = '.')]
+    
+    mod_vars <- mod_vars[mod_vars != mod_resp]
+    
+    preds <- preds %>% 
+      select(.fitted, 
+             .lower_ci.fit, 
+             .upper_ci.fit, 
+             all_of(c(mod_resp, mod_vars))) %>% 
+      mutate(!!mod_resp := if(is.factor(.data[[mod_resp]])) as.numeric(.data[[mod_resp]]) - 1 else .data[[mod_resp]])
+    
+    plots <- mod_vars %>% 
+      map(~ggplot(data = preds, 
+                  aes(x = .data[[.x]], 
+                      y = .data[[mod_resp]])) + 
+            geom_point(shape = 21, 
+                       size = 2, 
+                       fill = 'steelblue', 
+                       alpha = 0.5, 
+                       position = position_jitter(0.1, 0.02)) + 
+            geom_ribbon(aes(ymin = .lower_ci.fit, 
+                            ymax = .upper_ci.fit), 
+                        fill = 'gray60', 
+                        alpha = 0.25) + 
+            geom_line(aes(y = .fitted), 
+                      color = 'firebrick') + 
+            globals$common_theme)
+    
+    plots %>% 
+      set_names(mod_vars)
+    
     
   }
-    
+  
+  
 # END -----

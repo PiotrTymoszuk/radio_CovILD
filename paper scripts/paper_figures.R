@@ -6,322 +6,175 @@
 
   paper_figures <- list()
   suppl_figures <- list()
+  rev_figures <- list() ## response to the statistical reviewer
   
 # Figure 1: Consort plot - placeholder, provided by the Author team ----
   
   insert_msg('Figure 1: CONSORT, provided by the authors')
   
+  paper_figures$consort <- ggdraw() %>% 
+    as_figure(label = 'figure_1_consort_placeholder', 
+              w = 180, 
+              h = 180)
+  
 # Figure 2: CT images, provided by the Author team -----
   
   insert_msg('Figure 2: CT images, provided by the authors')
   
-# Figure 3: kinetics of any CT abnormalities -----
+  paper_figures$ct_images <- ggdraw() %>% 
+    as_figure(label = 'figure_2_ct_placeholder', 
+              w = 180, 
+              h = 180)
   
-  insert_msg('Figure 3: kinetic of any CT abnormalities and CTSS')
+# Figure 3: modeling of the CT abnormality risk -----
   
-  paper_figures$ct_kinetic$upper_panel <- kinetic$binary$plots[c('cohort.ctss_any', 
-                                                                 'mild.ctss_any', 
-                                                                 'moderate.ctss_any', 
-                                                                 'severe.ctss_any', 
-                                                                 'critical.ctss_any')] %>% 
-    map2(., globals$subset_labels, 
-         ~.x + 
-           labs(title = .y) + 
-           scale_y_continuous(limits = c(0, 115), 
-                              breaks = seq(0, 100, by = 25)) + 
-           scale_x_continuous(limits = c(2, 13), 
-                              breaks = c(2, 3, 6, 12))) %>% 
-    plot_grid(plotlist = ., 
-              ncol = 3, 
-              align = 'hv', 
-              axis = 'tblr')
-  
-  paper_figures$ct_kinetic$bottom_panel <- kinetic$binary$eff_plots$ctss_any + 
-    theme(legend.position = 'none') + 
-    facet_grid(.~severity, 
-               labeller = as_labeller(globals$subset_labels))
+  insert_msg('Figure 3: CT abnormality risk')
 
+  paper_figures$abnormality_risk <-  plot_grid(risk$univariate$plots$ctss_any_fup4, 
+                                               plot_grid(risk$multivariate$plots$ctss_any_fup4, 
+                                                         ggdraw(), 
+                                                         nrow = 2, 
+                                                         rel_heights = c(0.6, 0.4)), 
+                                               ncol = 2, 
+                                               rel_widths = c(0.52, 0.48), 
+                                               labels = LETTERS, 
+                                               label_size = 10) %>% 
+    as_figure(label = 'figure_3_abnormality_risk', 
+              h = 180, 
+              w = 180)
   
-  paper_figures$ct_kinetic <- plot_grid(paper_figures$ct_kinetic$upper_panel, 
-                                        paper_figures$ct_kinetic$bottom_panel, 
-                                        nrow = 2, 
-                                        rel_heights = c(2, 1), 
-                                        labels = LETTERS, 
-                                        label_size = 10) %>% 
-    as_figure_object(figure_label = 'figure_3_kinetic_ct', 
-                     w = 180, 
-                     h = 210)
+# Figure 4: CT placeholder -----
   
-# Figure 4: kinetic of the CTSS -----
+  insert_msg('Figure 4: CT placeholder')
   
-  insert_msg('Figure 4: kinetic of the CTSS')
+  paper_figures$ct_images2 <- ggdraw() %>% 
+    as_figure(label = 'figure_4_ct_placeholder2', 
+              w = 180, 
+              h = 180)
   
-  paper_figures$ctss_kinetic$upper_panel <- kinetic$numeric$plots_ctss[c('cohort',
-                                                                         'mild', 
-                                                                         'moderate', 
-                                                                         'severe', 
-                                                                         'critical')] %>% 
+# Figure 5: CTSS change in time ------
+  
+  insert_msg('Figure 5: CT change in time')
+  
+  paper_figures$ctss_change <- kinetic$plots_ctss %>% 
     plot_grid(plotlist = ., 
-              ncol = 3, 
-              align = 'hv')
-  
-  paper_figures$ctss_kinetic$bottom_panel <- kinetic$numeric$eff_plots$ctss + 
-    theme(legend.position = 'none') + 
-    facet_grid(.~severity, 
-               labeller = as_labeller(globals$subset_labels))
-  
-  paper_figures$ctss_kinetic <- plot_grid(paper_figures$ctss_kinetic$upper_panel, 
-                                          paper_figures$ctss_kinetic$bottom_panel, 
-                                          nrow = 2, 
-                                          rel_heights = c(2.1, 0.9), 
-                                          labels = LETTERS, 
-                                          label_size = 10) %>% 
-    as_figure_object(figure_label = 'figure_4_kinetic_ctss',
-                     w = 180, 
-                     h = 210)
-  
-# Figure 5: Any CT abnormality modeling -----
-  
-  insert_msg('Figure 5: Any CT abnormality modeling')
-  
-  paper_figures$pili_modeling <- plot_grid(risk$univariate_plots$ctss_any_fup4, 
-                                           risk$multivariate_plots$ctss_any_fup4, 
-                                           nrow = 2, 
-                                           align = 'hv', 
-                                           rel_heights = c(0.63, 0.37), 
-                                           labels = LETTERS, 
-                                           label_size = 10) %>% 
-    as_figure_object(figure_label = 'figure_4_ct_abnormality_modeling', 
-                     w = 180, 
-                     h = 210)
-  
-# Figure 6: CTSS modeling ------
-  
-  insert_msg('Figure 6: CTSS modeling')
-  
-  paper_figures$ctss_modeling <- plot_grid(risk$univariate_plots$ctss_fup4, 
-                                           risk$multivariate_plots$ctss_fup4, 
-                                           nrow = 2, 
-                                           align = 'hv', 
-                                           rel_heights = c(0.64, 0.36), 
-                                           labels = LETTERS, 
-                                           label_size = 10) %>% 
-    as_figure_object(figure_label = 'figure_6_ctss_modeling', 
-                     w = 180, 
-                     h = 210)
-  
-# Supplementary Figure S1: kinetics of any CT abnormalities -----
-  
-  insert_msg('Figure S1: kinetic of moderate-severe abnormalities')
-  
-  suppl_figures$ct_kinetic$upper_panel <- kinetic$binary$plots[c('cohort.ctss_mod_severe', 
-                                                                 'mild.ctss_mod_severe', 
-                                                                 'moderate.ctss_mod_severe', 
-                                                                 'severe.ctss_mod_severe', 
-                                                                 'critical.ctss_mod_severe')] %>% 
-    map2(., globals$subset_labels, 
-         ~.x + 
-           labs(title = .y) + 
-           scale_y_continuous(limits = c(0, 115), 
-                              breaks = seq(0, 100, by = 25)) + 
-           scale_x_continuous(limits = c(2, 13), 
-                              breaks = c(2, 3, 6, 12))) %>% 
-    plot_grid(plotlist = ., 
-              ncol = 3, 
               align = 'hv', 
-              axis = 'tblr')
-  
-  suppl_figures$ct_kinetic$bottom_panel <- kinetic$binary$eff_plots$ctss_mod_severe + 
-    theme(legend.position = 'none') + 
-    facet_grid(.~severity, 
-               labeller = as_labeller(globals$subset_labels))
-  
-  
-  suppl_figures$ct_kinetic <- plot_grid(suppl_figures$ct_kinetic$upper_panel, 
-                                        suppl_figures$ct_kinetic$bottom_panel, 
-                                        nrow = 2, 
-                                        rel_heights = c(2, 1), 
-                                        labels = LETTERS, 
-                                        label_size = 10) %>% 
-    as_figure_object(figure_label = 'figure_s1_kinetic_ctss_moderate_severe', 
-                     w = 180, 
-                     h = 210)
-  
-# Supplementary Figure S2: kinetics of any CT opacity -----
-  
-  insert_msg('Figure S1: kinetic of moderate-severe abnormalities')
-  
-  suppl_figures$ct_opacity$upper_panel <- kinetic$binary$plots[c('cohort.opacity', 
-                                                                 'mild.opacity', 
-                                                                 'moderate.opacity', 
-                                                                 'severe.opacity', 
-                                                                 'critical.opacity')] %>% 
-    map2(., globals$subset_labels, 
-         ~.x + 
-           labs(title = .y) + 
-           scale_y_continuous(limits = c(0, 115), 
-                              breaks = seq(0, 100, by = 25)) + 
-           scale_x_continuous(limits = c(2, 13), 
-                              breaks = c(2, 3, 6, 12))) %>% 
-    plot_grid(plotlist = ., 
-              ncol = 3, 
-              align = 'hv', 
-              axis = 'tblr')
-  
-  suppl_figures$ct_opacity$bottom_panel <- kinetic$binary$eff_plots$opacity + 
-    theme(legend.position = 'none') + 
-    facet_grid(.~severity, 
-               labeller = as_labeller(globals$subset_labels))
-  
-  
-  suppl_figures$ct_opacity <- plot_grid(suppl_figures$ct_opacity$upper_panel, 
-                                        suppl_figures$ct_opacity$bottom_panel, 
-                                        nrow = 2, 
-                                        rel_heights = c(2, 1), 
-                                        labels = LETTERS, 
-                                        label_size = 10) %>% 
-    as_figure_object(figure_label = 'figure_s2_kinetic_any_opacity', 
-                     w = 180, 
-                     h = 210)
-  
-  
-# Supplementary Figure S3: opacity kinetics ----
-  
-  insert_msg('Figure S3: kinetics of the opacity')
-  
-  suppl_figures$opacity_kinetic$upper_panel <- kinetic$numeric$plots_opacity[c('cohort',
-                                                                   'mild', 
-                                                                   'moderate', 
-                                                                   'severe', 
-                                                                   'critical')] %>% 
-    plot_grid(plotlist = ., 
-              ncol = 3, 
-              align = 'hv')
-  
-  suppl_figures$opacity_kinetic$bottom_panel <- kinetic$numeric$eff_plots$perc_opac + 
-    theme(legend.position = 'none') + 
-    facet_grid(.~severity, 
-               labeller = as_labeller(globals$subset_labels))
-  
-  suppl_figures$opacity_kinetic <- plot_grid(suppl_figures$opacity_kinetic$upper_panel, 
-                                             suppl_figures$opacity_kinetic$bottom_panel, 
-                                             nrow = 2, 
-                                             rel_heights = c(2.1, 0.9), 
-                                             labels = LETTERS, 
-                                             label_size = 10) %>% 
-    as_figure_object(figure_label = 'figure_s3_kinetic_opacity',
-                     w = 180, 
-                     h = 210)
-  
-# Supplementary Figure S4: risk modeling of any opacity ------
-  
-  insert_msg('Figure S4: risk modeling of any opacity')
-  
-  suppl_figures$opacity_risk <- plot_grid(risk$univariate_plots$opacity_fup4, 
-                                           risk$multivariate_plots$opacity_fup4, 
-                                           nrow = 2, 
-                                           align = 'hv', 
-                                           rel_heights = c(0.63, 0.37), 
-                                           labels = LETTERS, 
-                                           label_size = 10) %>% 
-    as_figure_object(figure_label = 'figure_s4_opacity_risk_modeling', 
-                     w = 180, 
-                     h = 220)
-  
-# Supplementary Figure S5: inter-rater performance, detection of abnormalities by CTSS and opacity ----
-  
-  insert_msg('Figure S5: detection of any abnormalities by CTSS and opacity')
-  
-  suppl_figures$any_abnormality_rater <- plot_grid(rater$any_ct$roc_plot + 
-                                                     theme(plot.tag = element_blank(), 
-                                                           legend.position = 'none'), 
-                                                   rater$any_ct$kappa_plot + 
-                                                     theme(legend.position = 'none') + 
-                                                     scale_x_continuous(limits = c(0, 1.1), 
-                                                                        breaks = seq(0, 1, by = 0.25)), 
-                                                   ncol = 2, 
-                                                   rel_widths = c(1.1, 0.9), 
-                                                   labels = LETTERS, 
-                                                   label_size = 10) %>% 
-    plot_grid(plot_grid(get_legend(rater$any_ct$roc_plot), 
-                        ggdraw() + 
-                          draw_text(rater$any_ct$roc_plot$labels$tag, 
-                                    size = 8, 
-                                    x = 0.1, 
-                                    hjust = 0), 
-                        ncol = 2), 
-              nrow = 2, 
-              rel_heights = c(0.7, 0.3)) %>% 
-    as_figure_object(figure_label = 'figure_s5_abnormality_rater',
-                     w = 180, 
-                     h = 140)
-  
-# Supplementary Figure S6: inter-rater performance, detection of abnormalities by CTSS and opacity ----
-  
-  insert_msg('Figure S6: detection of any abnormalities by CTSS and opacity')
-  
-  suppl_figures$ggo_rater <- plot_grid(rater$ggo$roc_plot + 
-                                         theme(plot.tag = element_blank(), 
-                                               legend.position = 'none'), 
-                                       rater$ggo$kappa_plot + 
-                                         theme(legend.position = 'none') + 
-                                         scale_x_continuous(limits = c(0, 1.1), 
-                                                            breaks = seq(0, 1, by = 0.25)), 
-                                       ncol = 2, 
-                                       rel_widths = c(1.1, 0.9), 
-                                       labels = LETTERS, 
-                                       label_size = 10) %>% 
-    plot_grid(plot_grid(get_legend(rater$ggo$roc_plot), 
-                        ggdraw() + 
-                          draw_text(rater$ggo$roc_plot$labels$tag, 
-                                    size = 8, 
-                                    x = 0.1, 
-                                    hjust = 0), 
-                        ncol = 2), 
-              nrow = 2, 
-              rel_heights = c(0.7, 0.3)) %>% 
-    as_figure_object(figure_label = 'figure_s5_ggo_rater',
-                     w = 180, 
-                     h = 140)
-  
-# Supplementary Figure S7: correlation of CTSS and opacity -----
-  
-  insert_msg('Figure S7: CTSS and opacity')
-  
-  suppl_figures$ctss_opacity <- rater$ctss$plots %>% 
-    plot_grid(plotlist = ., 
               ncol = 2) %>% 
-    as_figure_object(figure_label = 'figure_s7_ctss_opacity_correlations',
-                     w = 180, 
-                     h = 180)
-    
+    as_figure(label = 'figure_5_ctss_change', 
+              w = 180, 
+              h = 210)
+  
+# Figure E1: CTSS severity at 1-year FUP -----
+  
+  insert_msg('Figure E1: CTSS severity class at 1 year')
+  
+  suppl_figures$ctss_severity <-  plot_grid(score$univariate$plots$ctss_class_fup4, 
+                                            plot_grid(score$multivariate$plots$ctss_class_fup4, 
+                                                      ggdraw(), 
+                                                      nrow = 2, 
+                                                      rel_heights = c(0.6, 0.4)), 
+                                            ncol = 2, 
+                                            rel_widths = c(0.52, 0.48), 
+                                            labels = LETTERS, 
+                                            label_size = 10) %>% 
+    as_figure(label = 'figure_E1_CTSS_severity', 
+              h = 180, 
+              w = 180)
+  
+# Figure E2: CTSS and automated opacity determination -----
+  
+  insert_msg('Figure E2: CTSS and opacity correlation')
+  
+  suppl_figures$ctss_correlation <- rater$ctss$plots %>% 
+    plot_grid(plotlist = ., 
+              ncol = 2, 
+              align = 'hv') %>% 
+    as_figure(label = 'figure_E2_CTSS_correlations', 
+              h = 180, 
+              w = 180)
+  
+# Figure R1: Splining of the numeric variables -----
+  
+  insert_msg('Figure R1: splining')
+  
+  rev_figures$age_spline <- c(risk_gam$comparison$gam_models$ctss_any_fup4, 
+                              risk_gam$comparison$cutoff_models$ctss_any_fup4) %>% 
+    plot_grid(plotlist = ., 
+              ncol = 2, 
+              align = 'hv') %>% 
+    plot_grid(plot_grid(risk_gam$univariate$pred_plots$ctss_any_fup4.age.age + 
+                          geom_vline(xintercept = 60, linetype = 'dashed'), 
+                        ggdraw(), 
+                        ncol = 2), 
+              ., 
+              nrow = 2, 
+              rel_heights = c(0.9, 2.1), 
+              labels = LETTERS, 
+              label_size = 10) %>% 
+    as_figure(label = 'figure_R1_age_spline',
+              w = 180, 
+              h = 210)
+  
+# Figure R2: Poisson and logistic ordinal regression results ------
+  
+  insert_msg('Figure R2: Poisson and logistic regression results')
+  
+  rev_figures$pois_ord_comp <- plot_grid(score$multivariate$plots$ctss_fup4, 
+                                         score$multivariate$plots$ctss_class_fup4, 
+                                         ncol = 2, 
+                                         align = 'hv') %>% 
+    plot_grid(plot_grid(score$cv$diagnostic_plots$ctss_class_fup4$train + 
+                          labs(title = 'CTSS score class: confusion matrix', 
+                               tag = paste0('\n', score$cv$diagnostic_plots$ctss_class_fup4$train$labels$tag)) + 
+                          guides(fill = FALSE) + 
+                          scale_x_discrete(labels = c('0', '1-5', '6-10', '11-25'), 
+                                           name = 'True CTSS class') + 
+                          scale_y_discrete(labels = c('0', '1-5', '6-10', '11-25'), 
+                                           name = 'Predicted CTSS class'), 
+                        ggdraw(), 
+                        ncol = 2, 
+                        rel_widths = c(0.6, 0.4)), 
+              nrow = 2, 
+              rel_heights = c(0.6, 0.4), 
+              labels = LETTERS, 
+              label_size = 10) %>% 
+    as_figure(label = 'figure_R2_mod_techniques', 
+              w = 180, 
+              h = 180)
+
 # Saving the figures on the disc -----
   
   insert_msg('Saving the figures')
   
   paper_figures %>% 
-    walk(save_figure_object, 
+    walk(save_figure, 
          format = 'pdf', 
-         dev = cairo_pdf, 
-         target_folder = './paper/figures')
+         device = cairo_pdf, 
+         path = './paper/figures')
   
   paper_figures %>% 
-    walk(save_figure_object, 
+    walk(save_figure, 
          format = 'eps', 
-         dev = cairo_ps, 
-         target_folder = './paper/figures')
+         device = cairo_ps, 
+         path = './paper/figures')
   
   suppl_figures %>% 
-    walk(save_figure_object, 
+    walk(save_figure, 
          format = 'pdf', 
-         dev = cairo_pdf, 
-         target_folder = './paper/supplementary figures')
+         device = cairo_pdf, 
+         path = './paper/supplementary figures')
   
   suppl_figures %>% 
-    walk(save_figure_object, 
+    walk(save_figure, 
          format = 'eps', 
-         dev = cairo_ps, 
-         target_folder = './paper/supplementary figures')
+         device = cairo_ps, 
+         path = './paper/supplementary figures')
+  
+  rev_figures %>% 
+    walk(save_figure, 
+         format = 'pdf', 
+         device = cairo_pdf, 
+         path = './paper/reviewer figures')
   
 # END ----
   

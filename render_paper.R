@@ -4,13 +4,19 @@
   
 # tools ----
   
-  c('./tools/sys_tools.R', 
-    './tools/project_tools.R', 
-    './tools/plotting_tools.R') %>% 
-    walk(source)
-  
   library(writexl)
+  library(figur) ## available from https://github.com/PiotrTymoszuk/figur
+  library(soucer) ## available from https://github.com/PiotrTymoszuk/soucer
+  library(cowplot)
+  library(rmarkdown)
+  library(knitr)
+  library(flextable)
+  library(bookdown)
   
+  c('./tools/project_tools.R', 
+    './tools/project_globals.R') %>% 
+    source_all(message = TRUE, crash = TRUE)
+
 # paper scripts -----
   
   insert_msg('Sourcing the paper scripts')

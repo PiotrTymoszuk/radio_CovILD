@@ -1,0 +1,124 @@
+---
+title: "Radio CovILD, 1-year follow-up"
+subtitle: "Response to the statistical reviewer"
+author: "CovILD study team"
+date: "`r format(Sys.time(), '%Y-%m-%d')`"
+always_allow_html: true
+output: 
+  pdf_document:
+    latex_engine: xelatex
+bibliography: cov_biblio.bib
+csl: elife.csl
+header-includes:
+  \usepackage{longtable}
+  \usepackage{tabu}
+  \usepackage{caption}
+  \usepackage{makecell}
+  \usepackage{pdflscape}
+  \usepackage{array}
+  \usepackage{booktabs}
+  \usepackage{threeparttable}
+  \usepackage{threeparttablex}
+  \usepackage{wrapfig}
+  \usepackage{multirow}
+  \usepackage[normalem]{ulem}
+  \usepackage{colortbl}
+  \usepackage{xcolor}
+  \usepackage{float} \floatplacement{figure}{T} \floatplacement{table}{H}
+  \newcommand{\beginsupplement}{\setcounter{table}{0}  \renewcommand{\thetable}{R\arabic{table}}       \setcounter{figure}{0} \renewcommand{\thefigure}{R\arabic{figure}}}
+---
+
+```{r, setup, include = FALSE}
+
+library(bookdown)
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, dev = "cairo_pdf", ft_max_row = 6, tab.topcaption = TRUE, ft.align = "center")
+
+set_flextable_defaults(font.size = 11, padding = 2)
+
+use_df_printer()
+
+
+```
+
+\beginsupplement
+
+\newpage
+
+# Response to the statistical reviewer
+
+We would like to thank the reviewer for careful study of the manuscript and the feedback. Please find below our response to the open issues.
+
+## Issue 1
+
+__Issue:__ In general, the statistical methods and results need pruning. There are too many analyses for this single paper, and aren’t needed for the main aims seem to be focused around the inferential analysis of the risk factors associated with any CT abnormalities (yes/no) and the risk factors associated with CT severity score (0-25). Also, I see the benefit of understanding the trend of CTSS over time.
+
+__Response:__ We reduced the amount of data and analyses presented in the manuscript as suggested and followed the specific comments of the editor in the manuscript text. In particular, __Figure 6__ comping with the inter-rater comparison of the manual and automated abnormality detection and the plots of effect sizes in __Figure 5B__ are removed and the effect size measures cited in the main text instead.
+
+## Issue 2
+
+__Issue:__  Methods and results related to the automatic quantification opacity detection seems outside of the scope of this paper. Removing the text and results relating to this would really help the readability of this paper, and make the results clearer.
+
+__Response__: The corresponding text content and __Figure 6__ were removed from the revised manuscript.
+
+```{r fig-age-spline, fig.width = 7.086614166, fig.height = 8.267716527, fig.cap = 'Effects of the age variable splining.'}
+
+rev_figures$age_spline$plot
+
+```
+
+__Figure R\@ref(fig:fig-age-spline). Effects of the age variable splining.__
+
+## Issue 3
+
+__Issue:__ Instead of categorization of the continuous variables, you should considering splining these variables in the regression analyses. Even if the variables are not normal there are better and more powerful ways of handling these variables in the analysis.
+
+__Response:__ This is certainly an important point. We agree that manual categorization of numeric variables is controversial and not optimal in terms of model performance. However, categorization of clinical and demographic parameters with widely accepted/published cutoffs is usually accepted better by the clinical community. In our manuscript, we applied cutoffs of BMI and pack-years associated with clinical phenotypes (see: [@Pleasants2020] for smoking). For the age variable, the cutoff choice was motivated by clinical experience of the study team and corresponded approvimately to the mean age of the study cohort.
+
+To address the issue in more detail, we modeled the risk of any CT abnormalities as a function of splined age (logistic GAM, thin plate smoothing method, k = 20, R package _mgcv_, function _gam()_). Interestingly, the inflection point of the predicted risk curve approximates well the chosen age cutoff of 60-years (__Figure R\@ref(fig:fig-age-spline)A__). In general, inclusion of categorized age or smoothed age term in the multi-variate risk modeling (explanatory variables: age, sex and COVID-19 severity) has negligible effect on the accuracy, sensitivity and specificity at predicting any CT abnormalities at the 1-year follow-up (__Figure R\@ref(fig:fig-age-spline)B__).
+
+The comparison of the smoothed and cutoff models are included in the project pipeline deposited at GitHub (https://github.com/PiotrTymoszuk/radio_CovILD).
+
+## Issue 4
+
+__Issue:__ The univariable models are fine on their own (and I think the associated plots are super nice!), but they should not be used to inform the variables that are included in your multivariable models.
+
+__Response:__ We apologize for the unclarity. The multi-parameter models were constructed with the full set of candidate variables (i.e. age, sex, BMI class, smoking quantity, smoking status and acute COVID-19 severity) without any pre-selection based on the results of univariable modeling. The sole criterion for full model term elimination was AIC reduction  (function _stepAIC()_, R package _MASS_). We clarify this in the _Statistical analysis_ section.
+
+```{r fig-pois-ord-comp, fig.width = 7.086614166, fig.height = 7.086614166, fig.cap = 'Comparison of the Poisson and logistic ordinal regression results.'}
+
+rev_figures$pois_ord_comp$plot
+
+```
+
+__Figure R\@ref(fig:fig-pois-ord-comp). Comparison of the Poisson and logistic ordinal regression results.__
+
+## Issue 5
+
+__Issue:__ Poisson regression doesn’t seem quite right for the CTSS outcome. Ordinal logistic regression would be better since certain outcomes are "higher" or "lower" than others, but you're not sure by how much or if it even matters how much. In this example, the outcomes are ratings on a 1-25 scale, you know 4 is better than 2 but you can't necessarily say it's "twice as good" as 2. Also, a poisson model assumes both an infinite support and a that the mean-variance is the same – both are not true with this outcome.
+
+__Response:__ We understand the problem. In the revised manuscript, the severity of CT abnormalities was analyzed by logistic ordinal regression as suggested (function _polr_, R package _MASS_) and the results presented in __Figure E1__. Since, the ordinal models had severe convergence problems while working with the full scale CTSS (0 - 25) and the assumption of odds proportionality (Brant test [@Brant1990]) was severely violated, we decided to define the following severity classes: 0, 1 - 5, 6 - 10 and 11 - 25 CTSS. A shown in __Figure R\@ref(fig:fig-pois-ord-comp)A__ for multi-variable modeling of the CT abnormality severity both Poison and ordinal regression returned comparable results, i.e. in both cases age, sex and acute COVID-19 severity were identified as significant predictors. Still, the ordinal model showed only a limited performance at predicting moderate and severe CT abnormalities (see confusion matrix in __Figure R\@ref(fig:fig-pois-ord-comp)B__), an issue which may be addressed by a broader set of explanatory variables.
+
+## Issue 6
+
+__Issue:__ The word ‘kinetics’ is confusing to me throughout this manuscript. I think you just mean the change or trend of CTTS over time. Given this, I think a repeated measure model is appropriate here. I don’t understand the use of Kendall’s tau the assess this relationship.
+
+__Response:__ We have changed the wording throughout the manuscript to 'change over time' or 'rate of improvement' as suggested by the reviewer and editor. The intention of presenting $\tau$ statistic was to show the reduced drop of CTSS between the consecutive follow-ups, which may be interpreted as decelerated structural lung recovery or chronicity of the residual abnormalities. For the sake of manuscript clarity, we removed the effect size plots from __Figure 5__. Instead, we decided to use more common effect size measure, the non-parametric $r$ statistic for paired data [@Fritz2012] and cite its value and effect size interpretation in the main text section describing the changes of CTSS over time.
+
+## Issue 7
+
+__Issue:__ The figures are much improved, I think there is just too much presented in each figure. All of the extraneous data in the figure can be removed (i.e. the test statistic, df, etc.).
+
+__Response:__ The numeric and text content presented in the Figures was reduced as suggested by the Editor in the manuscript text.
+
+\newpage
+
+# Other changes introduced to the analysis pipeline
+
+## Change 1
+
+The construction of multi-parameter models by backward elimination was accomplished now with another R tool (function _stepAIC()_, package _MASS_ instead of _train()_ function from _caret_). With any of the tools, the same set of significant explanatory variables was included in the final multi-parameter models. The OR and 95$\%$CI estimates are larger due to change of the baseline level for the sex variable as requested by the editor. See: __Figure 3B__.
+
+\newpage
+
+# References
