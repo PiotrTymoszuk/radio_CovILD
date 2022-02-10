@@ -190,7 +190,7 @@
   
   ## GAM models
   
-  risk_gam$comparison$gam_models <- list(caretx_model = risk_gam$cv$caret_models, 
+  risk_gam$comparison$gam_models <- list(x = risk_gam$cv$caret_models, 
                                          plot_title = list(c('GGO, GAM, training', 
                                                              'GGO, GAM, CV'), 
                                                            c('Reticulations, GAM, training', 
@@ -207,7 +207,7 @@
   
   ## Cutoff-models
   
-  risk_gam$comparison$cutoff_models <- list(caretx_model = risk$cv$caret_models, 
+  risk_gam$comparison$cutoff_models <- list(x = risk$cv$caret_models, 
                                             plot_title = list(c('GGO, age cutoff, training', 
                                                                 'GGO, age cutoff, CV'), 
                                                               c('Reticulations, age cutoff, training', 

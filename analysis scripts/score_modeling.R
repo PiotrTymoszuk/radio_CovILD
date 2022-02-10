@@ -59,7 +59,7 @@
   
   score$univariate$distr_plots <- map2(score$univariate$models, 
                                        c(10, 4), 
-                                       function(models, bin_no) list(lm_analysis_object = models, 
+                                       function(models, bin_no) list(x = models, 
                                                                      facet_formula = score$facet_forms) %>% 
                                          pmap(plot, 
                                               type = 'distribution', 
